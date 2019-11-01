@@ -3,7 +3,7 @@
     outputPath: "C:\\output",
     localPath: "C:\\result",
   
-    aerenderPath: "C:\\Program Files\\Adobe\\Adobe After Effects CC 2017\\Support Files",
+    aerenderPath: "C:\\Program Files\\Adobe\\Adobe After Effects CC 2018\\Support Files",
     ffmpegPath: "C:\\ffmpeg\\bin",
     fontPath: "C:\\Program Files\\Common Files\\Adobe\\Fonts",
 

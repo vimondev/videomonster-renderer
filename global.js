@@ -5,6 +5,32 @@ const {
     fontPath
 } = config
 
+function AccessAsync(path) {
+    return new Promise((resolve, reject) => {
+        fs.access(path, err => {
+            if (err) resolve(false)
+            else resolve(true)
+        })
+    })
+}
+
+function ReadDirAsync(path) {
+    return new Promise((resolve, reject) => {
+        fs.readdir(path, (err, files) => {
+            if (err) reject(err)
+            else resolve(files)
+        })
+    })
+}
+
+function CopyFileAsync(src, dest) {
+    return new Promise((resolve, reject) => {
+        fs.copyFile(src, dest, err => {
+            resolve()
+        })
+    })
+}
+
 exports.LaunchAfterFX = () => {
     return new Promise((resolve, reject) => {
         const spawn = require(`child_process`).spawn,
@@ -32,13 +58,13 @@ exports.LaunchAfterFX = () => {
     })
 }
 
-exports.InstallFont = (path) => {
-    if (fs.existsSync(fontPath) && fs.existsSync(path)) {
-        const files = fs.readdirSync(path)
+exports.InstallFont = async (path) => {
+    if (await AccessAsync(fontPath) && await AccessAsync(path)) {
+        const files = await ReadDirAsync(path)
         for (let i=0; i<files.length; i++) {
             const file = files[i]
-            if (!fs.existsSync(`${fontPath}/${file}`)) {
-                fs.copyFileSync(`${path}/${file}`, `${fontPath}/${file}`)
+            if (!(await AccessAsync(`${fontPath}/${file}`))) {
+                await CopyFileAsync(`${path}/${file}`, `${fontPath}/${file}`)
                 console.log(`${file} is installed!`)
             }
             else 

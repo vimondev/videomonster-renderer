@@ -8,9 +8,65 @@ const {
     ffmpegPath
 } = config
 
-let totalRenderedFrameCount = 0
-let totalConvertedFrameCount = 0
+function AccessAsync(path) {
+    return new Promise((resolve, reject) => {
+        fs.access(path, err => {
+            if (err) resolve(false)
+            else resolve(true)
+        })
+    })
+}
 
+function ReadDirAsync(path) {
+    return new Promise((resolve, reject) => {
+        fs.readdir(path, (err, files) => {
+            if (err) reject(err)
+            else resolve(files)
+        })
+    })
+}
+
+function UnlinkAsync(path) {
+    return new Promise((resolve, reject) => {
+        fs.unlink(path, err => {
+            if (err) reject(err)
+            else resolve()
+        })
+    })
+}
+
+function MkdirAsync(path) {
+    return new Promise((resolve, reject) => {
+        fs.mkdir(path, err => {
+            if(err) reject(err)
+            else resolve()
+        })
+    })
+}
+
+function RenameAsync(oldPath, newPath) {
+    return new Promise((resolve, reject) => {
+        fs.rename(oldPath, newPath, err => {
+            if (err) reject(err)
+            else resolve()
+        })
+    })
+}
+
+function WriteFileAsync(path, data) {
+    return new Promise((resolve, reject) => {
+        fs.writeFile(path, data, err => {
+            if (err) reject(err)
+            else resolve()
+        })
+    })
+}
+
+// 렌더링 진행률 보고를 위한 변수
+let totalRenderedFrameCount = 0     // aerender 프로세스로 렌더링 된 프레임 개수
+let totalConvertedFrameCount = 0    // ffmpeg 프로세스로 h264로 인코딩된 프레임 개수
+
+// 초기화
 exports.ResetTotalRenderedFrameCount = () => {
     totalRenderedFrameCount = 0
     totalConvertedFrameCount = 0
@@ -20,13 +76,14 @@ exports.GetTotalRenderedFrameCount = () => {
     return (totalRenderedFrameCount + totalConvertedFrameCount) / 2
 }
 
+// 오디오 렌더링
 exports.AudioRender = (aepPath, audioPath, totalFrameCount) => {
     return new Promise((resolve, reject) => {
         try {
             console.log(`Audio Render Start!`)
 
+            // 오디오 렌더링을 수행한다. (분산 렌더링 없이 처음부터 끝까지)
             const spawn = require(`child_process`).spawn,
-                //ls = spawn(`cmd`, [`/c`, `aerender`, `-project`, `"${aepPath}"`, `-comp`, `"#Target"`, `-s`, `${startFrame}`, `-e`, `${endFrame}`, `-RStemplate`, `"Best Settings"`, `-OMtemplate`, `"AIFF 48kHz"`, `-output`, `"${localPath}/${rendererIndex}/frames.aif"`, `-continueOnMissingFootage`], { cwd: aerenderPath })
                 
                 ls = spawn(`cmd`, [`/c`, `aerender`, `-project`, `"${aepPath}"`, `-comp`, `"#Target"`, `-s`, `0`, `-e`, `${Number(totalFrameCount) - 1}`, `-RStemplate`, `"Best Settings"`, `-OMtemplate`, `"AIFF 48kHz"`, `-output`, `"${audioPath}/audio.aif"`, `-continueOnMissingFootage`], { cwd: aerenderPath })
 
@@ -38,10 +95,11 @@ exports.AudioRender = (aepPath, audioPath, totalFrameCount) => {
                 console.log('stderr: ' + data)
             })
 
-            ls.on('exit', function (code) {
+            ls.on('exit', async function (code) {
                 console.log('child process exited with code ' + code)
 
-                if (!fs.existsSync(`${audioPath}/audio.aif`)) {
+                // 출력된 AIF 파일이 있는지 검사
+                if (!(await AccessAsync(`${audioPath}/audio.aif`))) {
                     return reject(`ERR_AUDIO_FILE_NOT_EXIST (오디오 렌더링 실패)`)
                 }
                 else {
@@ -56,40 +114,46 @@ exports.AudioRender = (aepPath, audioPath, totalFrameCount) => {
     })
 }
 
+// 비디오 렌더링
 exports.VideoRender = (rendererIndex, aepPath, startFrame, endFrame, hashTagString) => {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
         try {
             const frameDuration = {}
             let nowTime = Date.now()
 
             console.log(`Video Render Start!`)
             // 시작 전에 반드시 localPath 청소
-            if (fs.existsSync(`${localPath}`)) {
-                if (fs.existsSync(`${localPath}/${rendererIndex}`)) {
-                    let files = fs.readdirSync(`${localPath}/${rendererIndex}`)
+            if (await AccessAsync(localPath)) {
+                if (await AccessAsync(`${localPath}/${rendererIndex}`)) {
+                    let files = await ReadDirAsync(`${localPath}/${rendererIndex}`)
                     for (let i = 0; i < files.length; i++) {
-                        fs.unlinkSync(`${localPath}/${rendererIndex}/${files[i]}`)
+                        // 기존 팡닐들 모두 삭제
+                        await UnlinkAsync(`${localPath}/${rendererIndex}/${files[i]}`)
                     }
                 }
+                // 기존에 생성된 폴더가 없을 경우 생성
                 else
-                    fs.mkdirSync(`${localPath}/${rendererIndex}`)
+                    await MkdirAsync(`${localPath}/${rendererIndex}`)
             }
 
+            // startFrame ~ endFrame까지 부분 렌더링 (TIFF로 뽑아낸다.)
             const spawn = require(`child_process`).spawn,
                 ls = spawn(`cmd`, [`/c`, `aerender`, `-project`, `"${aepPath}"`, `-comp`, `"#Target"`, `-s`, `${startFrame}`, `-e`, `${endFrame}`, `-RStemplate`, `"Best Settings"`, `-OMtemplate`, `"TIFF Sequence with Alpha"`, `-output`, `"${localPath}/${rendererIndex}/frames[${hashTagString}].tif"`, `-continueOnMissingFootage`], { cwd: aerenderPath })
-                
-                //ls = spawn(`cmd`, [`/c`, `aerender`, `-project`, `"${aepPath}"`, `-comp`, `"#Target"`, `-s`, `${startFrame}`, `-e`, `${endFrame}`, `-RStemplate`, `"Best Settings"`, `-OMtemplate`, `"Lossless"`, `-output`, `"${localPath}/${rendererIndex}/out.avi"`, `-continueOnMissingFootage`], { cwd: aerenderPath })
 
+                // 프로세스 수행 중 print 이벤트 발생 시 콜백
             ls.stdout.on('data', function (data) {
                 data = String(data)
                 console.log('stdout: ' + data)
 
+                // PROGRESS: (frameIndex) 로 출력되는 결과에서 frameIndex 값을 가져온다.
                 if (data.includes(`PROGRESS:`) && data.includes(`(`) && data.includes(`)`)) {
+                    // totalRenderedFrameCount을 하나씩 증가시켜준다. (단, 총 프레임 수보다 더 값이 높아지지 않게 막아놓음)
                     totalRenderedFrameCount = Math.min(totalRenderedFrameCount + 1, Number(endFrame) - Number(startFrame) + 1)
                     
                     const startIndex = data.indexOf(`(`) + 1
                     const endIndex = data.indexOf(`)`)
 
+                    // 각 frame 렌더링에 걸린 시간을 계산하여 frameDuration에 저장한다.
                     const frame = data.substring(startIndex, endIndex)
                     if(!isNaN(Number(frame))) frameDuration[frame] = Date.now() - nowTime
                 }
@@ -100,34 +164,30 @@ exports.VideoRender = (rendererIndex, aepPath, startFrame, endFrame, hashTagStri
                 console.log('stderr: ' + data)
             })
 
-            ls.on('exit', function (code) {
+            ls.on('exit', async function (code) {
                 console.log('child process exited with code ' + code)
 
+                // 끝났을 때는 그냥 이렇게 정확히 계산해줌.
                 totalRenderedFrameCount = Number(endFrame) - Number(startFrame) + 1
 
-                let files = fs.readdirSync(`${localPath}/${rendererIndex}`).sort()
-                // if (files.length != Number(endFrame) - Number(startFrame) + 1) return reject(`ERR_MISMATCH_FILECOUNT`)
-                // else
-                {
-                    try {
-                        for (let i=0; i<files.length; i++) {
-                            let digit = ``
-                            while (digit.length < hashTagString.length - String(i).length) digit += `0`
-                            digit += i
-    
-                            let filename = `frames${digit}.tif`
-                            fs.renameSync(`${localPath}/${rendererIndex}/${files[i]}`, `${localPath}/${rendererIndex}/${filename}`)
-                        }
-                    }
-                    catch (e) {
-                        console.log(e)
-                        return reject(`ERR_RENAME_FILE_FAILED (${rendererIndex}번 비디오 렌더러 렌더링 실패)`)
-                    }
-                    return resolve(frameDuration)
-                }
+                let files = (await ReadDirAsync(`${localPath}/${rendererIndex}`)).sort()
 
-                // if (!fs.existsSync(`${localPath}/${rendererIndex}/out.avi`)) return reject(`ERR_AVI_FILE_NOT_EXIST (${rendererIndex}번 비디오 렌더러 렌더링 실패)`)
-                // else return resolve()
+                try {
+                    // 각 TIFF 파일을 Rename해준다. (ffmpeg 돌리려면 프레임 숫자가 0부터 시작해야함.)
+                    for (let i=0; i<files.length; i++) {
+                        let digit = ``
+                        while (digit.length < hashTagString.length - String(i).length) digit += `0`
+                        digit += i
+
+                        let filename = `frames${digit}.tif`
+                        await RenameAsync(`${localPath}/${rendererIndex}/${files[i]}`, `${localPath}/${rendererIndex}/${filename}`)
+                    }
+                }
+                catch (e) {
+                    console.log(e)
+                    return reject(`ERR_RENAME_FILE_FAILED (${rendererIndex}번 비디오 렌더러 렌더링 실패)`)
+                }
+                return resolve(frameDuration)
             })
         }
         catch (e) {
@@ -137,6 +197,7 @@ exports.VideoRender = (rendererIndex, aepPath, startFrame, endFrame, hashTagStri
     })
 }
 
+// TIFF -> h264 인코딩
 exports.MakeMP4 = (rendererIndex, videoPath, hashTagString, frameRate) => {
     return new Promise((resolve, reject) => {
         try {
@@ -146,13 +207,11 @@ exports.MakeMP4 = (rendererIndex, videoPath, hashTagString, frameRate) => {
             while(digit.length < 3 - String(hashTagString.length).length) digit += `0`
             digit += hashTagString.length
 
-            const spawn = require(`child_process`).spawn,
-                //ls = spawn(`cmd`, [`/c`, `ffmpeg`, `-framerate`, `${frameRate}`, `-i`, `${localPath}/${rendererIndex}/frames%${digit}d.tif`, `-i`, `${localPath}/${rendererIndex}/frames.aif`, `-c:v`, `libx264`, `-pix_fmt`, `yuv420p`, `-r`, `${frameRate}`, `${videoPath}/out${rendererIndex}.mp4`, `-y`], { cwd: ffmpegPath })
-                
+            // h264 인코딩을 수행한다.
+            const spawn = require(`child_process`).spawn,                
                 ls = spawn(`cmd`, [`/c`, `ffmpeg`, `-framerate`, `${frameRate}`, `-i`, `${localPath}/${rendererIndex}/frames%${digit}d.tif`, `-c:v`, `libx264`, `-pix_fmt`, `yuv420p`, `-r`, `${frameRate}`, `${videoPath}/out${rendererIndex}.mp4`, `-y`], { cwd: ffmpegPath })
-                
-                // ls = spawn(`cmd`, [`/c`, `ffmpeg`, `-i`, `${localPath}/${rendererIndex}/out.avi`, `-c:v`, `libx264`, `-framerate`, `${frameRate}`, `-pix_fmt`, `yuv420p`, `${videoPath}/out${rendererIndex}.mp4`, `-y`], { cwd: ffmpegPath })
 
+                // 프로세스 수행 중 print 이벤트 발생 시 콜백
             ls.stdout.on('data', function (data) {
                 console.log('stdout: ' + data)
             })
@@ -160,6 +219,7 @@ exports.MakeMP4 = (rendererIndex, videoPath, hashTagString, frameRate) => {
             ls.stderr.on('data', function (data) {
                 console.log('stderr: ' + data)
 
+                // totalConvertedFrameCount에 인코딩된 프레임 개수를 저장시켜준다.
                 const str = String(data)
                 if (str.includes(`frame=`) && str.includes(`fps`)) {
                     const startIndex = str.indexOf(`frame=`, 0) + 6
@@ -169,24 +229,23 @@ exports.MakeMP4 = (rendererIndex, videoPath, hashTagString, frameRate) => {
                 }
             })
 
-            ls.on('exit', function (code) {
+            ls.on('exit', async function (code) {
                 console.log('child process exited with code ' + code)
 
-                let files = fs.readdirSync(`${localPath}/${rendererIndex}`)
+                // 렌더링이 완료된 후 TIFF 파일 제거
+                let files = await ReadDirAsync(`${localPath}/${rendererIndex}`)
                 for (let i = 0; i < files.length; i++) {
-                    if (fs.existsSync(`${localPath}/${rendererIndex}/${files[i]}`)) {
+                    if (await AccessAsync(`${localPath}/${rendererIndex}/${files[i]}`)) {
                         try {
-                            fs.unlinkSync(`${localPath}/${rendererIndex}/${files[i]}`)
+                            await UnlinkAsync(`${localPath}/${rendererIndex}/${files[i]}`)
                         } catch (e) {
                             console.log(e)
                         }
                     }
                 }
-                
-                // if (fs.existsSync(`${localPath}/${rendererIndex}/out.avi`)) 
-                //     fs.unlinkSync(`${localPath}/${rendererIndex}/out.avi`)
 
-                if (!fs.existsSync(`${videoPath}/out${rendererIndex}.mp4`)) {
+                // 출력된 mp4 파일이 존재하지 않으면 실패
+                if (!(await AccessAsync(`${videoPath}/out${rendererIndex}.mp4`))) {
                     return reject(`ERR_MP4_NOT_EXIST (${rendererIndex}번 비디오 렌더러 렌더링 실패)`)
                 }
                 else {
@@ -201,18 +260,21 @@ exports.MakeMP4 = (rendererIndex, videoPath, hashTagString, frameRate) => {
     })
 }
 
+// Merge
 exports.Merge = (rendererCount, videoPath) => {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
         try {
             console.log(`Merge Start!`)
 
+            // merge 정보 txt 파일을 생성해준다.
             let fileBody = ``
             for (let i = 0; i < rendererCount; i++) {
                 fileBody += `file out${i}.mp4\n`
             }
 
-            fs.writeFileSync(`${videoPath}/file.txt`, fileBody)
+            await WriteFileAsync(`${videoPath}/file.txt`, fileBody)
 
+            // merge를 수행한다.
             const spawn = require(`child_process`).spawn,
                 ls = spawn(`cmd`, [`/c`, `ffmpeg`, `-f`, `concat`, `-safe`, `0`, `-i`, `${videoPath}/file.txt`, `-c`, `copy`, `${videoPath}/merge.mp4`, `-y`], { cwd: ffmpegPath })
 
@@ -224,21 +286,23 @@ exports.Merge = (rendererCount, videoPath) => {
                 console.log('stderr: ' + data)
             })
 
-            ls.on('exit', function (code) {
+            ls.on('exit', async function (code) {
                 console.log('child process exited with code ' + code)
 
-                let files = fs.readdirSync(`${videoPath}`)
+                // 필요없는 파일들을 제거해준다.
+                let files = await ReadDirAsync(`${videoPath}`)
                 for (let i = 0; i < files.length; i++) {
-                    if ((files[i].includes(`out`, 0) && files[i].includes(`.mp4`, 0) || files[i] == `file.txt`) && fs.existsSync(`${videoPath}/${files[i]}`)) {
+                    if ((files[i].includes(`out`, 0) && files[i].includes(`.mp4`, 0) || files[i] == `file.txt`) && await AccessAsync(`${videoPath}/${files[i]}`)) {
                         try {
-                            fs.unlinkSync(`${videoPath}/${files[i]}`)
+                            await UnlinkAsync(`${videoPath}/${files[i]}`)
                         } catch (e) {
                             console.log(e)
                         }
                     }
                 }
 
-                if (!fs.existsSync(`${videoPath}/merge.mp4`)) {
+                // 출력된 mp4 파일이 존재하지 않으면 실패
+                if (!(await AccessAsync(`${videoPath}/merge.mp4`))) {
                     return reject(`ERR_MERGE_FILE_NOT_EXIST (렌더링 실패)`)
                 }
                 else {
@@ -253,13 +317,13 @@ exports.Merge = (rendererCount, videoPath) => {
     })
 }
 
+// 오디오 파일을 영상에 입히는 작업
 exports.ConcatAudio = (videoPath, audioPath) => {
     return new Promise((resolve, reject) => {
         try {
             console.log(`Concat Audio Start!`)
 
-            //ffmpeg -i INPUT.mp4 -i AUDIO.wav -shortest -c:v copy -c:a aac -b:a 256k OUTPUT.mp4
-
+            // 오디오 파일을 영상에 입혀준다. (AAC 코덱)
             const spawn = require(`child_process`).spawn,
                 ls = spawn(`cmd`, [`/c`, `ffmpeg`, `-i`, `${videoPath}/merge.mp4`, `-i`, `${audioPath}/audio.aif`, `-c:v`, `copy`, `-c:a`, `aac`, `-b:a`, `256k`, `${videoPath}/result.mp4`, `-y`], { cwd: ffmpegPath })
 
@@ -271,21 +335,23 @@ exports.ConcatAudio = (videoPath, audioPath) => {
                 console.log('stderr: ' + data)
             })
 
-            ls.on('exit', function (code) {
+            ls.on('exit', async function (code) {
                 console.log('child process exited with code ' + code)
 
-                let files = fs.readdirSync(`${videoPath}`)
+                // 필요없는 파일을 제거해준다.
+                let files = await ReadDirAsync(`${videoPath}`)
                 for (let i = 0; i < files.length; i++) {
-                    if (files[i] == `merge.mp4` && fs.existsSync(`${videoPath}/${files[i]}`)) {
+                    if (files[i] == `merge.mp4` && await AccessAsync(`${videoPath}/${files[i]}`)) {
                         try {
-                            fs.unlinkSync(`${videoPath}/${files[i]}`)
+                            await UnlinkAsync(`${videoPath}/${files[i]}`)
                         } catch (e) {
                             console.log(e)
                         }
                     }
                 }
 
-                if (!fs.existsSync(`${videoPath}/result.mp4`)) {
+                // 출력된 mp4 파일이 존재하지 않으면 실패
+                if (!(await AccessAsync(`${videoPath}/result.mp4`))) {
                     return reject(`ERR_RESULT_FILE_NOT_EXIST (렌더링 실패)`)
                 }
                 else {

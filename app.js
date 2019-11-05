@@ -20,20 +20,48 @@ function sleep(ms) {
 
 async function func() {
   const fs = require(`fs`)
-  require(`dotenv`).config()
+
+  function AccessAsync(path) {
+    return new Promise((resolve, reject) => {
+      fs.access(path, err => {
+        if (err) resolve(false)
+        else resolve(true)
+      })
+    })
+  }
+
+  function ReadFileAsync(path, options) {
+    return new Promise((resolve, reject) => {
+      fs.readFile(path, options, (err, data) => {
+        if (err) reject(err)
+        else resolve(data)
+      })
+    })
+  }
+
+  function WriteFileAsync(path, data) {
+    return new Promise((resolve, reject) => {
+      fs.writeFile(path, data, err => {
+        if (err) reject(err)
+        else resolve()
+      })
+    })
+  }
 
   const config = require(`./config`)
   const video = require(`./modules/video`)
-  // const image = require(`./modules/image`)
   const global = require(`./global`)
 
+  // 시작 전에 VM DEVICE에 생성된 TOKEN_ID 파일이 있는지 검사한다. 있으면 그대로 사용한다.
   let token = ``
-  if (fs.existsSync(config.tokenPath)) {
-    token = fs.readFileSync(config.tokenPath, 'utf8')
+  if (await AccessAsync(config.tokenPath)) {
+    token = await ReadFileAsync(config.tokenPath, 'utf8')
+    console.log(token)
   }
+  // 없으면 TOKEN_ID를 새로 하나 생성하여 LOCAL에 저장한다.
   else {
     token = require(`guid`).create().value
-    fs.writeFileSync(config.tokenPath, token)
+    await WriteFileAsync(config.tokenPath, token)
   }
 
   console.log(`start!`)
@@ -58,28 +86,36 @@ async function func() {
   let renderStatus = 0
 
   // let isImageRendering = false
-  let isAudioRendering = false
-  let isVideoRendering = false
-  let isMerging = false
+  let isTemplateConfirmRendering = false  // 현재 렌더러가 Template Confirm Rendering을 수행하는지 여부
+
+  let isAudioRendering = false    // 오디오 렌더링 수행중?
+  let isVideoRendering = false    // 비디오 렌더링 수행중?
+  let isMerging = false           // 비디오 Merging 수행중?
 
   socket.on(`connect`, () => {
     console.log(`Connected!`)
-    console.log(process.env.SECRETKEY)
-    socket.emit(`regist`, process.env.SECRETKEY)
+    console.log(`videoclient`)
+    socket.emit(`regist`, `videoclient`)
   })
 
   socket.on(`disconnect`, () => {
     console.log(`Disconnected!`)
   })
 
-  // socket.on(`is_stopped_image_rendering`, async data => {
-  //   if (isImageRendering == false) {
-  //     socket.emit(`image_render_completed`, {
-  //       errCode: `ERR_IMAGE_RENDER_STOPPED`
-  //     })
-  //   }
-  // })
+  // 렌더 서버에서 클라이언트가 네트워크 문제 등의 이유로 재접속 되었을 때, 작업을 수행중인지 물어본다.
+  // 만약 작업을 수행하고 있지 않다면 (VM이 재부팅되거나, 프로세스가 다시 시작되었을 경우) 에러 코드를 서버에 전송한다.
+  // Template Confirm Rendering 수행 여부 확인
+  socket.on(`is_stopped_template_confirm_rendering`, async data => {
+    const { currentGroupIndex } = data
+    if (isTemplateConfirmRendering == false) {
+      socket.emit(`template_confirm_render_completed`, {
+        currentGroupIndex,
+        errCode: `ERR_TEMPLATE_CONFIRM_RENDER_STOPPED`
+      })
+    }
+  })
 
+  // Audio Rendering 수행 여부 확인
   socket.on(`is_stopped_audio_rendering`, async data => {
     const { currentGroupIndex } = data
     if (isAudioRendering == false) {
@@ -90,6 +126,7 @@ async function func() {
     }
   })
   
+  // Video Rendering 수행 여부 확인
   socket.on(`is_stopped_video_rendering`, async data => {
     const { currentGroupIndex } = data
     if (isVideoRendering == false) {
@@ -100,6 +137,7 @@ async function func() {
     }
   })
   
+  // Video Merging 수행 여부 확인
   socket.on(`is_stopped_merging`, async data => {
     const { currentGroupIndex } = data
     if (isMerging == false) {
@@ -110,86 +148,92 @@ async function func() {
     }
   })
 
-  // socket.on(`image_render_start`, async (data) => {
-  //   isImageRendering = false
-
-  //   const {
-  //     aepPath,
-  //     imagePath,
-  //     fontPath,
-  //     imageList
-  //   } = data
-
-  //   console.log(data)
-
-  //   try {
-  //     global.InstallFont(fontPath)
-
-  //     for (let i = 0; i < 10; i++) {
-  //       console.log(`Check aep path...`)
-  //       if (fs.existsSync(aepPath)) break
-  //       await sleep(1000)
-  //       if (i == 9) throw `ERR_NO_AEP_FILE`
-  //     }
-
-  //     console.log(`start image render!`)
-  //     await image.ImageRender(aepPath, imageList)
-  //     console.log(`start image convert!`)
-  //     await image.ConvertTIFFToPng(imagePath, imageList)
-  //     console.log(`image render completed!`)
-
-  //     socket.emit(`image_render_completed`, {
-  //       errCode: null
-  //     })
-  //   }
-  //   catch (e) {
-  //     console.log(e)
-
-  //     socket.emit(`image_render_completed`, {
-  //       errCode: e
-  //     })
-  //   }
-  //   isImageRendering = false
-  // })
-  
-  socket.on(`audio_render_start`, async (data) => {
-    isAudioRendering = true
+  // Template Confirm Render 시작
+  socket.on(`template_confirm_render_start`, async (data) => {
+    isTemplateConfirmRendering = true
     let {
       currentGroupIndex,
 
       aepPath,
       audioPath,
+      videoPath,
+      fontPath,
       
+      frameRate,
+      hashTagString,
       totalFrameCount
     } = data
+
+    let startFrame = 0
+    let endFrame = totalFrameCount - 1
 
     console.log(data)
 
     try {
+      // AEP 파일이 존재하는지 검사한다. (10초 내로 찾지 못하면 에러 코드를 전송한다.)
       for (let i = 0; i < 10; i++) {
         console.log(`Check aep path...`)
-        if (fs.existsSync(aepPath)) break
+        if (await AccessAsync(aepPath)) break
         await sleep(1000)
         if (i == 9) throw `ERR_NO_AEP_FILE`
       }
+      
+      // 폰트 설치
+      await global.InstallFont(fontPath)
 
+      // Rendered Frame Count 0으로 초기화 (렌더링 진행률 보고)
+      video.ResetTotalRenderedFrameCount()
+
+      // 오디오 렌더링
       await video.AudioRender(aepPath, audioPath, totalFrameCount)
+      
+      // 비디오 렌더링 (모든 프레임을 TIFF 파일로 전부 뽑아낸다.)
+      renderStatus = ERenderStatus.VIDEO
+      ReportProgress(currentGroupIndex, 0)
+      const res = await video.VideoRender(0, aepPath, startFrame, endFrame, hashTagString)
+      
+      // 각 Frame별 렌더링 시간을 계산한다.
+      const frameDuration = {}
+      let totalTime = 0
+      Object.keys(res).forEach(key => {
+          const ms = res[key]
+          const newKey = startFrame + Number(key) - 1
 
-      socket.emit(`audio_render_completed`, {
+          frameDuration[newKey] = ms
+          totalTime += ms
+      })
+      Object.keys(frameDuration).forEach(key => {
+        frameDuration[key] /= totalTime
+      })
+
+      // 모든 TIFF 파일을 취합하여 h264로 인코딩한다.
+      renderStatus = ERenderStatus.MAKEMP4
+      await video.MakeMP4(0, videoPath, hashTagString, frameRate)
+      
+      // Merge를 수행한다. (Template Confirm Rendering은 렌더러를 1개만 사용하므로 Merge는 별로 의미가 없음.)
+      await video.Merge(1, videoPath)
+      // 비디오 파일에 Audio를 입힌다.
+      await video.ConcatAudio(videoPath, audioPath)
+
+      socket.emit(`template_confirm_render_completed`, {
         currentGroupIndex,
+        frameDuration,
         errCode: null
       })
     }
     catch (e) {
       console.log(e)
-      socket.emit(`audio_render_completed`, {
+      socket.emit(`template_confirm_render_completed`, {
         currentGroupIndex,
+        frameDuration: null,
         errCode: e
       })
     }
-    isAudioRendering = false
+    renderStatus = ERenderStatus.NONE
+    isTemplateConfirmRendering = false
   })
-
+  
+  // 비디오 분산 렌더링 시작
   socket.on(`video_render_start`, async (data) => {
     isVideoRendering = true
     let {
@@ -209,40 +253,32 @@ async function func() {
     console.log(data)
 
     try {
+      // AEP 파일이 존재하는지 검사한다. (10초 내로 찾지 못하면 에러 코드를 전송한다.)
       for (let i = 0; i < 10; i++) {
         console.log(`Check aep path...`)
-        if (fs.existsSync(aepPath)) break
+        if (await AccessAsync(aepPath)) break
         await sleep(1000)
         if (i == 9) throw `ERR_NO_AEP_FILE`
       }
       
-      global.InstallFont(fontPath)
+      // 폰트 설치
+      await global.InstallFont(fontPath)
 
+      // Rendered Frame Count 0으로 초기화 (렌더링 진행률 보고)
       video.ResetTotalRenderedFrameCount()
 
+      // 비디오 렌더링 (프레임을 TIFF 파일로 전부 뽑아낸다.)
+      // startFrame, endFrame까지 뽑아낸다.
       renderStatus = ERenderStatus.VIDEO
       ReportProgress(currentGroupIndex, rendererIndex)
-      const res = await video.VideoRender(rendererIndex, aepPath, startFrame, endFrame, hashTagString)
+      await video.VideoRender(rendererIndex, aepPath, startFrame, endFrame, hashTagString)
       
-      const frameDuration = {}
-      let totalTime = 0
-      Object.keys(res).forEach(key => {
-          const ms = res[key]
-          const newKey = startFrame + Number(key) - 1
-
-          frameDuration[newKey] = ms
-          totalTime += ms
-      })
-      Object.keys(frameDuration).forEach(key => {
-        frameDuration[key] /= totalTime
-      })
-
+      // 렌더링한 TIFF 파일들을 취합하여 h264로 인코딩한다.
       renderStatus = ERenderStatus.MAKEMP4
       await video.MakeMP4(rendererIndex, videoPath, hashTagString, frameRate)
 
       socket.emit(`video_render_completed`, {
         currentGroupIndex,
-        frameDuration,
         errCode: null
       })
     }
@@ -250,7 +286,6 @@ async function func() {
       console.log(e)
       socket.emit(`video_render_completed`, {
         currentGroupIndex,
-        frameDuration: null,
         errCode: e
       })
     }
@@ -258,6 +293,7 @@ async function func() {
     isVideoRendering = false
   })
 
+  // 1초에 한번씩 렌더서버에 진행률을 보고한다.
   function ReportProgress(currentGroupIndex, rendererIndex) {
     if (renderStatus != ERenderStatus.NONE) {
       switch (renderStatus) {
@@ -275,6 +311,8 @@ async function func() {
     }
   }
 
+  // Merging 시작 (분산 렌더링된 영상 파일들을 하나로 합치는 작업)
+  // 렌더러 그룹의 각 0번 렌더러가 단독으로 수행
   socket.on(`merge_start`, async (data) => {
     isMerging = true
     const {
@@ -286,7 +324,10 @@ async function func() {
     console.log(data)
 
     try {
+      // 분산 렌더링된 영상들을 하나로 합친다.
       await video.Merge(rendererCount, videoPath)
+
+      // 영상에 오디오를 입힌다.
       await video.ConcatAudio(videoPath, audioPath)
 
       socket.emit(`merge_completed`, {

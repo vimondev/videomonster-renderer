@@ -375,8 +375,8 @@ exports.ScaleWatermark = (watermarkPath, videoPath, width, height) => {
             const threshold = 1080
             const currentThreshold = width < height ? width : height
 
-            const baseWatermarkWidth = 500
-            const baseWatermarkHeight = 210
+            const baseWatermarkWidth = 350
+            const baseWatermarkHeight = 147
 
             let scaledWatermarkWidth = 0
             let scaledWatermarkHeight = 0
@@ -432,8 +432,8 @@ exports.PutWatermark = (videoPath, width, height, scaledData) => {
 
             const { scaleFactor, scaledWatermarkWidth, scaledWatermarkHeight } = scaledData
 
-            const scaledGapX = Math.floor(150 * scaleFactor)
-            const scaledGapY = Math.floor(150 * scaleFactor)
+            const scaledGapX = Math.floor(75 * scaleFactor)
+            const scaledGapY = Math.floor(75 * scaleFactor)
 
             const watermarkPositionX = scaledGapX
             const watermarkPositionY = height - scaledWatermarkHeight - scaledGapY

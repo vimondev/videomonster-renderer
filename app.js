@@ -319,7 +319,12 @@ async function func() {
       currentGroupIndex,
       rendererCount,
       videoPath,
-      audioPath
+      audioPath,
+      
+      width,
+      height,
+      watermarkPath,
+      isUseWatermark
     } = data
     console.log(data)
 
@@ -329,6 +334,11 @@ async function func() {
 
       // 영상에 오디오를 입힌다.
       await video.ConcatAudio(videoPath, audioPath)
+
+      if (isUseWatermark) {
+        const scaledData = await video.ScaleWatermark(watermarkPath, videoPath, width, height)
+        await video.PutWatermark(videoPath, width, height, scaledData)
+      }
 
       socket.emit(`merge_completed`, {
         currentGroupIndex,

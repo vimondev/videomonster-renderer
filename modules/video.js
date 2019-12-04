@@ -365,3 +365,106 @@ exports.ConcatAudio = (videoPath, audioPath) => {
         }
     })
 }
+
+// 오디오 파일을 영상에 입히는 작업
+exports.ScaleWatermark = (watermarkPath, videoPath, width, height) => {
+    return new Promise((resolve, reject) => {
+        try {
+            console.log(`Watermark Scaling Start!`)
+
+            const threshold = 1080
+            const currentThreshold = width < height ? width : height
+
+            const baseWatermarkWidth = 275
+            const baseWatermarkHeight = 115
+
+            let scaledWatermarkWidth = 0
+            let scaledWatermarkHeight = 0
+
+            let scaleFactor = 1
+            if (threshold !== currentThreshold) {
+                scaleFactor = currentThreshold / threshold
+            }
+
+            scaledWatermarkWidth = Math.floor(baseWatermarkWidth * scaleFactor)
+            scaledWatermarkHeight = Math.floor(baseWatermarkHeight * scaleFactor)
+
+            // 워터마크 크기를 조정한다.
+            const spawn = require(`child_process`).spawn,
+                ls = spawn(`cmd`, [`/c`, `ffmpeg`, `-i`, watermarkPath, '-vf', `scale=${scaledWatermarkWidth}:${scaledWatermarkHeight}`, `${videoPath}/scaledwatermark.png`, `-y`], { cwd: ffmpegPath })
+
+            ls.stdout.on('data', function (data) {
+                console.log('stdout: ' + data)
+            })
+
+            ls.stderr.on('data', function (data) {
+                console.log('stderr: ' + data)
+            })
+
+            ls.on('exit', async function (code) {
+                console.log('child process exited with code ' + code)
+
+                // 출력된 png 파일이 존재하지 않으면 실패
+                if (!(await AccessAsync(`${videoPath}/scaledwatermark.png`))) {
+                    return reject(`ERR_SCALED_WATERMARK_NOT_FOUND (렌더링 실패)`)
+                }
+                else {
+                    return resolve({
+                        scaleFactor,
+                        scaledWatermarkWidth,
+                        scaledWatermarkHeight
+                    })
+                }
+            })
+        }
+        catch (e) {
+            console.log(e)
+            reject(`ERR_SCALE_WATERMARK_FAILED (렌더링 실패)`)
+        }
+    })
+}
+
+// 오디오 파일을 영상에 입히는 작업
+exports.PutWatermark = (videoPath, width, height, scaledData) => {
+    return new Promise((resolve, reject) => {
+        try {
+            console.log(`Put Watermark Start!`)
+
+            const { scaleFactor, scaledWatermarkWidth, scaledWatermarkHeight } = scaledData
+
+            const scaledGapX = Math.floor(70 * scaleFactor)
+            const scaledGapY = Math.floor(60 * scaleFactor)
+
+            const watermarkPositionX = scaledGapX
+            const watermarkPositionY = height - scaledWatermarkHeight - scaledGapY
+
+            // 워터마크를 씌운다.
+            const spawn = require(`child_process`).spawn,
+                ls = spawn(`cmd`, [`/c`, `ffmpeg`, `-i`, `${videoPath}/result.mp4`, '-i', `${videoPath}/scaledwatermark.png`, '-filter_complex', `overlay=${watermarkPositionX}:${watermarkPositionY}`, `${videoPath}/sealed.mp4`, `-y`], { cwd: ffmpegPath })
+
+            ls.stdout.on('data', function (data) {
+                console.log('stdout: ' + data)
+            })
+
+            ls.stderr.on('data', function (data) {
+                console.log('stderr: ' + data)
+            })
+
+            ls.on('exit', async function (code) {
+                console.log('child process exited with code ' + code)
+
+                // 출력된 mp4 파일이 존재하지 않으면 실패
+                if (!(await AccessAsync(`${videoPath}/sealed.mp4`))) {
+                    return reject(`ERR_SEALED_MP4_NOT_FOUND (렌더링 실패)`)
+                }
+                else {
+                    return resolve()
+                }
+            })
+        }
+        catch (e) {
+            console.log(e)
+            reject(`ERR_SEAL_WATERMARK_FAILED (렌더링 실패)`)
+        }
+    })
+}

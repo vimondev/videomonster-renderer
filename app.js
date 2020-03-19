@@ -47,6 +47,26 @@ async function func() {
       })
     })
   }
+  
+  function DeleteMediaCache() {
+    return new Promise(resolve => {
+        const mediaCacheDir = require('os').homedir() + '\\AppData\\Roaming\\Adobe\\Common\\Media Cache Files'
+        
+        fs.access(mediaCacheDir, err => {
+            if (err) return resolve()
+
+            fs.readdir(mediaCacheDir, (err, files) => {
+                if (err) return resolve()
+
+                files.forEach(file => {
+                    fs.unlinkSync(mediaCacheDir + '\\' + file)
+                })
+
+                resolve()
+            })
+        })
+    })
+}
 
   const config = require(`./config`)
   const video = require(`./modules/video`)
@@ -66,6 +86,7 @@ async function func() {
 
   console.log(`start!`)
 
+  await DeleteMediaCache()
   const socket = require(`socket.io-client`)(`http://10.0.0.7:3000`, {
     transports: [`websocket`],
     query: {

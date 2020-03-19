@@ -62,6 +62,8 @@ function WriteFileAsync(path, data) {
     })
 }
 
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
+
 // 렌더링 진행률 보고를 위한 변수
 let totalRenderedFrameCount = 0     // aerender 프로세스로 렌더링 된 프레임 개수
 let totalConvertedFrameCount = 0    // ffmpeg 프로세스로 h264로 인코딩된 프레임 개수
@@ -97,6 +99,7 @@ exports.AudioRender = (aepPath, audioPath, totalFrameCount) => {
 
             ls.on('exit', async function (code) {
                 console.log('child process exited with code ' + code)
+                await sleep(2000)
 
                 // 출력된 AIF 파일이 있는지 검사
                 if (!(await AccessAsync(`${audioPath}/audio.aif`))) {
@@ -170,6 +173,7 @@ exports.VideoRender = (rendererIndex, aepPath, startFrame, endFrame, hashTagStri
                 // 끝났을 때는 그냥 이렇게 정확히 계산해줌.
                 totalRenderedFrameCount = Number(endFrame) - Number(startFrame) + 1
 
+                await sleep(2000)
                 let files = (await ReadDirAsync(`${localPath}/${rendererIndex}`)).sort()
 
                 try {
@@ -232,6 +236,8 @@ exports.MakeMP4 = (rendererIndex, videoPath, hashTagString, frameRate) => {
             ls.on('exit', async function (code) {
                 console.log('child process exited with code ' + code)
 
+                await sleep(2000)
+
                 // 렌더링이 완료된 후 TIFF 파일 제거
                 let files = await ReadDirAsync(`${localPath}/${rendererIndex}`)
                 for (let i = 0; i < files.length; i++) {
@@ -288,6 +294,8 @@ exports.Merge = (rendererCount, videoPath) => {
 
             ls.on('exit', async function (code) {
                 console.log('child process exited with code ' + code)
+                
+                await sleep(2000)
 
                 // 필요없는 파일들을 제거해준다.
                 let files = await ReadDirAsync(`${videoPath}`)
@@ -337,6 +345,8 @@ exports.ConcatAudio = (videoPath, audioPath) => {
 
             ls.on('exit', async function (code) {
                 console.log('child process exited with code ' + code)
+                
+                await sleep(2000)
 
                 // 필요없는 파일을 제거해준다.
                 let files = await ReadDirAsync(`${videoPath}`)
@@ -403,6 +413,8 @@ exports.ScaleWatermark = (watermarkPath, videoPath, width, height) => {
 
             ls.on('exit', async function (code) {
                 console.log('child process exited with code ' + code)
+                
+                await sleep(2000)
 
                 // 출력된 png 파일이 존재하지 않으면 실패
                 if (!(await AccessAsync(`${videoPath}/scaledwatermark.png`))) {
@@ -452,6 +464,8 @@ exports.PutWatermark = (videoPath, width, height, scaledData) => {
 
             ls.on('exit', async function (code) {
                 console.log('child process exited with code ' + code)
+                
+                await sleep(2000)
 
                 // 출력된 mp4 파일이 존재하지 않으면 실패
                 if (!(await AccessAsync(`${videoPath}/sealed.mp4`))) {

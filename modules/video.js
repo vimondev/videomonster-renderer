@@ -99,14 +99,20 @@ exports.AudioRender = (aepPath, audioPath, totalFrameCount) => {
 
             ls.on('exit', async function (code) {
                 console.log('child process exited with code ' + code)
-                await sleep(2000)
+                try {
+                    await sleep(2000)
 
-                // 출력된 AIF 파일이 있는지 검사
-                if (!(await AccessAsync(`${audioPath}/audio.aif`))) {
-                    return reject(`ERR_AUDIO_FILE_NOT_EXIST (오디오 렌더링 실패)`)
+                    // 출력된 AIF 파일이 있는지 검사
+                    if (!(await AccessAsync(`${audioPath}/audio.aif`))) {
+                        return reject(`ERR_AUDIO_FILE_NOT_EXIST (오디오 렌더링 실패)`)
+                    }
+                    else {
+                        return resolve()
+                    }
                 }
-                else {
-                    return resolve()
+                catch (e) {
+                    console.log(e)
+                    reject(`ERR_AUDIO_RENDER_FAILED (오디오 렌더링 실패)`)
                 }
             })
         }
@@ -170,13 +176,13 @@ exports.VideoRender = (rendererIndex, aepPath, startFrame, endFrame, hashTagStri
             ls.on('exit', async function (code) {
                 console.log('child process exited with code ' + code)
 
-                // 끝났을 때는 그냥 이렇게 정확히 계산해줌.
-                totalRenderedFrameCount = Number(endFrame) - Number(startFrame) + 1
-
-                await sleep(2000)
-                let files = (await ReadDirAsync(`${localPath}/${rendererIndex}`)).sort()
-
                 try {
+                    // 끝났을 때는 그냥 이렇게 정확히 계산해줌.
+                    totalRenderedFrameCount = Number(endFrame) - Number(startFrame) + 1
+
+                    await sleep(2000)
+                    let files = (await ReadDirAsync(`${localPath}/${rendererIndex}`)).sort()
+
                     // 각 TIFF 파일을 Rename해준다. (ffmpeg 돌리려면 프레임 숫자가 0부터 시작해야함.)
                     for (let i=0; i<files.length; i++) {
                         let digit = ``
@@ -236,26 +242,32 @@ exports.MakeMP4 = (rendererIndex, videoPath, hashTagString, frameRate) => {
             ls.on('exit', async function (code) {
                 console.log('child process exited with code ' + code)
 
-                await sleep(2000)
-
-                // 렌더링이 완료된 후 TIFF 파일 제거
-                let files = await ReadDirAsync(`${localPath}/${rendererIndex}`)
-                for (let i = 0; i < files.length; i++) {
-                    if (await AccessAsync(`${localPath}/${rendererIndex}/${files[i]}`)) {
-                        try {
-                            await UnlinkAsync(`${localPath}/${rendererIndex}/${files[i]}`)
-                        } catch (e) {
-                            console.log(e)
+                try {
+                    await sleep(2000)
+    
+                    // 렌더링이 완료된 후 TIFF 파일 제거
+                    let files = await ReadDirAsync(`${localPath}/${rendererIndex}`)
+                    for (let i = 0; i < files.length; i++) {
+                        if (await AccessAsync(`${localPath}/${rendererIndex}/${files[i]}`)) {
+                            try {
+                                await UnlinkAsync(`${localPath}/${rendererIndex}/${files[i]}`)
+                            } catch (e) {
+                                console.log(e)
+                            }
                         }
                     }
+    
+                    // 출력된 mp4 파일이 존재하지 않으면 실패
+                    if (!(await AccessAsync(`${videoPath}/out${rendererIndex}.mp4`))) {
+                        return reject(`ERR_MP4_NOT_EXIST (${rendererIndex}번 비디오 렌더러 렌더링 실패)`)
+                    }
+                    else {
+                        return resolve()
+                    }
                 }
-
-                // 출력된 mp4 파일이 존재하지 않으면 실패
-                if (!(await AccessAsync(`${videoPath}/out${rendererIndex}.mp4`))) {
-                    return reject(`ERR_MP4_NOT_EXIST (${rendererIndex}번 비디오 렌더러 렌더링 실패)`)
-                }
-                else {
-                    return resolve()
+                catch (e) {
+                    console.log(e)
+                    reject(`ERR_MAKE_MP4_FAILED (${rendererIndex}번 비디오 렌더러 렌더링 실패)`)
                 }
             })
         }
@@ -295,26 +307,32 @@ exports.Merge = (rendererCount, videoPath) => {
             ls.on('exit', async function (code) {
                 console.log('child process exited with code ' + code)
                 
-                await sleep(2000)
-
-                // 필요없는 파일들을 제거해준다.
-                let files = await ReadDirAsync(`${videoPath}`)
-                for (let i = 0; i < files.length; i++) {
-                    if ((files[i].includes(`out`, 0) && files[i].includes(`.mp4`, 0) || files[i] == `file.txt`) && await AccessAsync(`${videoPath}/${files[i]}`)) {
-                        try {
-                            await UnlinkAsync(`${videoPath}/${files[i]}`)
-                        } catch (e) {
-                            console.log(e)
+                try {
+                    await sleep(2000)
+    
+                    // 필요없는 파일들을 제거해준다.
+                    let files = await ReadDirAsync(`${videoPath}`)
+                    for (let i = 0; i < files.length; i++) {
+                        if ((files[i].includes(`out`, 0) && files[i].includes(`.mp4`, 0) || files[i] == `file.txt`) && await AccessAsync(`${videoPath}/${files[i]}`)) {
+                            try {
+                                await UnlinkAsync(`${videoPath}/${files[i]}`)
+                            } catch (e) {
+                                console.log(e)
+                            }
                         }
                     }
+    
+                    // 출력된 mp4 파일이 존재하지 않으면 실패
+                    if (!(await AccessAsync(`${videoPath}/merge.mp4`))) {
+                        return reject(`ERR_MERGE_FILE_NOT_EXIST (렌더링 실패)`)
+                    }
+                    else {
+                        return resolve()
+                    }
                 }
-
-                // 출력된 mp4 파일이 존재하지 않으면 실패
-                if (!(await AccessAsync(`${videoPath}/merge.mp4`))) {
-                    return reject(`ERR_MERGE_FILE_NOT_EXIST (렌더링 실패)`)
-                }
-                else {
-                    return resolve()
+                catch (e) {
+                    console.log(e)
+                    reject(`ERR_MERGE_FAILED (렌더링 실패)`)
                 }
             })
         }
@@ -346,26 +364,32 @@ exports.ConcatAudio = (videoPath, audioPath) => {
             ls.on('exit', async function (code) {
                 console.log('child process exited with code ' + code)
                 
-                await sleep(2000)
-
-                // 필요없는 파일을 제거해준다.
-                let files = await ReadDirAsync(`${videoPath}`)
-                for (let i = 0; i < files.length; i++) {
-                    if (files[i] == `merge.mp4` && await AccessAsync(`${videoPath}/${files[i]}`)) {
-                        try {
-                            await UnlinkAsync(`${videoPath}/${files[i]}`)
-                        } catch (e) {
-                            console.log(e)
+                try {
+                    await sleep(2000)
+    
+                    // 필요없는 파일을 제거해준다.
+                    let files = await ReadDirAsync(`${videoPath}`)
+                    for (let i = 0; i < files.length; i++) {
+                        if (files[i] == `merge.mp4` && await AccessAsync(`${videoPath}/${files[i]}`)) {
+                            try {
+                                await UnlinkAsync(`${videoPath}/${files[i]}`)
+                            } catch (e) {
+                                console.log(e)
+                            }
                         }
                     }
+    
+                    // 출력된 mp4 파일이 존재하지 않으면 실패
+                    if (!(await AccessAsync(`${videoPath}/result.mp4`))) {
+                        return reject(`ERR_RESULT_FILE_NOT_EXIST (렌더링 실패)`)
+                    }
+                    else {
+                        return resolve()
+                    }
                 }
-
-                // 출력된 mp4 파일이 존재하지 않으면 실패
-                if (!(await AccessAsync(`${videoPath}/result.mp4`))) {
-                    return reject(`ERR_RESULT_FILE_NOT_EXIST (렌더링 실패)`)
-                }
-                else {
-                    return resolve()
+                catch (e) {
+                    console.log(e)
+                    reject(`ERR_CONCAT_AUDIO_FAILED (렌더링 실패)`)
                 }
             })
         }
@@ -414,18 +438,24 @@ exports.ScaleWatermark = (watermarkPath, videoPath, width, height) => {
             ls.on('exit', async function (code) {
                 console.log('child process exited with code ' + code)
                 
-                await sleep(2000)
-
-                // 출력된 png 파일이 존재하지 않으면 실패
-                if (!(await AccessAsync(`${videoPath}/scaledwatermark.png`))) {
-                    return reject(`ERR_SCALED_WATERMARK_NOT_FOUND (렌더링 실패)`)
+                try {
+                    await sleep(2000)
+    
+                    // 출력된 png 파일이 존재하지 않으면 실패
+                    if (!(await AccessAsync(`${videoPath}/scaledwatermark.png`))) {
+                        return reject(`ERR_SCALED_WATERMARK_NOT_FOUND (렌더링 실패)`)
+                    }
+                    else {
+                        return resolve({
+                            scaleFactor,
+                            scaledWatermarkWidth,
+                            scaledWatermarkHeight
+                        })
+                    }
                 }
-                else {
-                    return resolve({
-                        scaleFactor,
-                        scaledWatermarkWidth,
-                        scaledWatermarkHeight
-                    })
+                catch (e) {
+                    console.log(e)
+                    reject(`ERR_SCALE_WATERMARK_FAILED (렌더링 실패)`)
                 }
             })
         }
@@ -465,14 +495,20 @@ exports.PutWatermark = (videoPath, width, height, scaledData) => {
             ls.on('exit', async function (code) {
                 console.log('child process exited with code ' + code)
                 
-                await sleep(2000)
-
-                // 출력된 mp4 파일이 존재하지 않으면 실패
-                if (!(await AccessAsync(`${videoPath}/sealed.mp4`))) {
-                    return reject(`ERR_SEALED_MP4_NOT_FOUND (렌더링 실패)`)
+                try {
+                    await sleep(2000)
+    
+                    // 출력된 mp4 파일이 존재하지 않으면 실패
+                    if (!(await AccessAsync(`${videoPath}/sealed.mp4`))) {
+                        return reject(`ERR_SEALED_MP4_NOT_FOUND (렌더링 실패)`)
+                    }
+                    else {
+                        return resolve()
+                    }
                 }
-                else {
-                    return resolve()
+                catch (e) {
+                    console.log(e)
+                    reject(`ERR_SEAL_WATERMARK_FAILED (렌더링 실패)`)
                 }
             })
         }

@@ -96,28 +96,13 @@ async function func() {
     fontPath
   } = config
 
-  // 시작 전에 VM DEVICE에 생성된 TOKEN_ID 파일이 있는지 검사한다. 있으면 그대로 사용한다.
-  let token = ``
-  if (await AccessAsync(config.tokenPath)) {
-    token = await ReadFileAsync(config.tokenPath, 'utf8')
-    console.log(token)
-  }
-  // 없으면 TOKEN_ID를 새로 하나 생성하여 LOCAL에 저장한다.
-  else {
-    token = require(`guid`).create().value
-    await WriteFileAsync(config.tokenPath, token)
-  }
-
   console.log(`start!`)
 
   await createFolder(fontPath)
   await DeleteMediaCache()
 
   const socket = require(`socket.io-client`)(`http://10.0.0.19:3000`, {
-    transports: [`websocket`],
-    query: {
-      token: token
-    }
+    transports: [`websocket`]
   })
 
   const ERenderStatus = {

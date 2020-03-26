@@ -47,30 +47,54 @@ async function func() {
       })
     })
   }
-  
-  function DeleteMediaCache() {
-    return new Promise(resolve => {
-        const mediaCacheDir = require('os').homedir() + '\\AppData\\Roaming\\Adobe\\Common\\Media Cache Files'
-        
-        fs.access(mediaCacheDir, err => {
-            if (err) return resolve()
 
-            fs.readdir(mediaCacheDir, (err, files) => {
-                if (err) return resolve()
-
-                files.forEach(file => {
-                    fs.unlinkSync(mediaCacheDir + '\\' + file)
-                })
-
-                resolve()
-            })
+  function MkdirAsync(path) {
+    return new Promise((resolve, reject) => {
+        fs.mkdir(path, err => {
+            if(err) reject(err)
+            else resolve()
         })
     })
-}
+  }
+
+  function DeleteMediaCache() {
+    return new Promise(resolve => {
+      const mediaCacheDir = require('os').homedir() + '\\AppData\\Roaming\\Adobe\\Common\\Media Cache Files'
+
+      fs.access(mediaCacheDir, err => {
+        if (err) return resolve()
+
+        fs.readdir(mediaCacheDir, (err, files) => {
+          if (err) return resolve()
+
+          files.forEach(file => {
+            fs.unlinkSync(mediaCacheDir + '\\' + file)
+          })
+
+          resolve()
+        })
+      })
+    })
+  }
+
+  async function createFolder(folderPath) {
+    try {
+      if (!await AccessAsync(folderPath)) {
+        await MkdirAsync(folderPath)
+      }
+    }
+    catch (e) {
+      console.log(e)
+    }
+  }
 
   const config = require(`./config`)
   const video = require(`./modules/video`)
   const global = require(`./global`)
+  const {
+    localPath,
+    fontPath
+  } = config
 
   // 시작 전에 VM DEVICE에 생성된 TOKEN_ID 파일이 있는지 검사한다. 있으면 그대로 사용한다.
   let token = ``
@@ -86,6 +110,7 @@ async function func() {
 
   console.log(`start!`)
 
+  await createFolder(fontPath)
   await DeleteMediaCache()
 
   const socket = require(`socket.io-client`)(`http://10.0.0.19:3000`, {
@@ -94,10 +119,6 @@ async function func() {
       token: token
     }
   })
-
-  const {
-    localPath
-  } = config
 
   const ERenderStatus = {
     NONE: 0,
@@ -147,7 +168,7 @@ async function func() {
       })
     }
   })
-  
+
   // Video Rendering 수행 여부 확인
   socket.on(`is_stopped_video_rendering`, async data => {
     const { currentGroupIndex } = data
@@ -158,7 +179,7 @@ async function func() {
       })
     }
   })
-  
+
   // Video Merging 수행 여부 확인
   socket.on(`is_stopped_merging`, async data => {
     const { currentGroupIndex } = data
@@ -180,7 +201,7 @@ async function func() {
       audioPath,
       videoPath,
       fontPath,
-      
+
       frameRate,
       hashTagString,
       totalFrameCount
@@ -199,7 +220,7 @@ async function func() {
         await sleep(1000)
         if (i == 9) throw `ERR_NO_AEP_FILE`
       }
-      
+
       // 폰트 설치
       await global.InstallFont(fontPath)
 
@@ -208,21 +229,21 @@ async function func() {
 
       // 오디오 렌더링
       await video.AudioRender(aepPath, audioPath, totalFrameCount)
-      
+
       // 비디오 렌더링 (모든 프레임을 TIFF 파일로 전부 뽑아낸다.)
       renderStatus = ERenderStatus.VIDEO
       ReportProgress(currentGroupIndex, 0)
       const res = await video.VideoRender(0, aepPath, startFrame, endFrame, hashTagString)
-      
+
       // 각 Frame별 렌더링 시간을 계산한다.
       const frameDuration = {}
       let totalTime = 0
       Object.keys(res).forEach(key => {
-          const ms = res[key]
-          const newKey = startFrame + Number(key) - 1
+        const ms = res[key]
+        const newKey = startFrame + Number(key) - 1
 
-          frameDuration[newKey] = ms
-          totalTime += ms
+        frameDuration[newKey] = ms
+        totalTime += ms
       })
       Object.keys(frameDuration).forEach(key => {
         frameDuration[key] /= totalTime
@@ -231,7 +252,7 @@ async function func() {
       // 모든 TIFF 파일을 취합하여 h264로 인코딩한다.
       renderStatus = ERenderStatus.MAKEMP4
       await video.MakeMP4(0, videoPath, hashTagString, frameRate)
-      
+
       // Merge를 수행한다. (Template Confirm Rendering은 렌더러를 1개만 사용하므로 Merge는 별로 의미가 없음.)
       await video.Merge(1, videoPath)
       // 비디오 파일에 Audio를 입힌다.
@@ -254,7 +275,7 @@ async function func() {
     renderStatus = ERenderStatus.NONE
     isTemplateConfirmRendering = false
   })
-  
+
   // 비디오 분산 렌더링 시작
   socket.on(`video_render_start`, async (data) => {
     isVideoRendering = true
@@ -282,7 +303,7 @@ async function func() {
         await sleep(1000)
         if (i == 9) throw `ERR_NO_AEP_FILE`
       }
-      
+
       // 폰트 설치
       await global.InstallFont(fontPath)
 
@@ -294,7 +315,7 @@ async function func() {
       renderStatus = ERenderStatus.VIDEO
       ReportProgress(currentGroupIndex, rendererIndex)
       await video.VideoRender(rendererIndex, aepPath, startFrame, endFrame, hashTagString)
-      
+
       // 렌더링한 TIFF 파일들을 취합하여 h264로 인코딩한다.
       renderStatus = ERenderStatus.MAKEMP4
       await video.MakeMP4(rendererIndex, videoPath, hashTagString, frameRate)
@@ -342,7 +363,7 @@ async function func() {
       rendererCount,
       videoPath,
       audioPath,
-      
+
       width,
       height,
       watermarkPath,

@@ -294,7 +294,7 @@ async function func() {
         await sleep(1000)
         if (i == 9) throw `ERR_NO_AEP_FILE`
       }
-      
+
       renderStatus = ERenderStatus.VIDEO
       renderStartedTime = Date.now()
       ReportProgress(currentGroupIndex, rendererIndex)
@@ -334,15 +334,13 @@ async function func() {
   function ReportProgress(currentGroupIndex, rendererIndex) {
     if (renderStatus != ERenderStatus.NONE) {
       if (renderStartedTime != null) {
-        // 템플릿 컨펌 렌더링 3시간동안 멈출경우 프로세스 중지
-        if (isTemplateConfirmRendering && Date.now() - renderStartedTime > 60 * 1000) {
-        // if (isTemplateConfirmRendering && Date.now() - renderStartedTime > 3 * 60 * 60 * 1000) {
+        // 템플릿 컨펌 렌더링 2시간동안 멈출경우 프로세스 중지
+        if (isTemplateConfirmRendering && Date.now() - renderStartedTime > 2 * 60 * 60 * 1000) {
             console.error('TEMPLATE_CONFIRM_RENDER_STOPPED')
             process.exit(1)
         }
         // 비디오 렌더링 1시간동안 멈출경우 프로세스 중지
-        else if (isVideoRendering && Date.now() - renderStartedTime > 10 * 1000) {
-        //else if (isVideoRendering && Date.now() - renderStartedTime > 1 * 60 * 60 * 1000) {
+        else if (isVideoRendering && Date.now() - renderStartedTime > 1 * 60 * 60 * 1000) {
           console.error('VIDEO_RENDER_STOPPED')
           process.exit(1)
         }

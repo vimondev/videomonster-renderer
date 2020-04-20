@@ -113,6 +113,8 @@ async function func() {
   }
   let renderStatus = 0
 
+  let renderStartedTime = null
+
   // let isImageRendering = false
   let isTemplateConfirmRendering = false  // 현재 렌더러가 Template Confirm Rendering을 수행하는지 여부
 
@@ -217,6 +219,7 @@ async function func() {
 
       // 비디오 렌더링 (모든 프레임을 TIFF 파일로 전부 뽑아낸다.)
       renderStatus = ERenderStatus.VIDEO
+      renderStartedTime = Date.now()
       ReportProgress(currentGroupIndex, 0)
       const res = await video.VideoRender(0, aepPath, startFrame, endFrame, hashTagString)
 
@@ -259,6 +262,7 @@ async function func() {
     }
     renderStatus = ERenderStatus.NONE
     isTemplateConfirmRendering = false
+    renderStartedTime = null
   })
 
   // 비디오 분산 렌더링 시작
@@ -298,6 +302,7 @@ async function func() {
       // 비디오 렌더링 (프레임을 TIFF 파일로 전부 뽑아낸다.)
       // startFrame, endFrame까지 뽑아낸다.
       renderStatus = ERenderStatus.VIDEO
+      renderStartedTime = Date.now()
       ReportProgress(currentGroupIndex, rendererIndex)
       await video.VideoRender(rendererIndex, aepPath, startFrame, endFrame, hashTagString)
 
@@ -319,11 +324,27 @@ async function func() {
     }
     renderStatus = ERenderStatus.NONE
     isVideoRendering = false
+    renderStartedTime = null
   })
 
   // 1초에 한번씩 렌더서버에 진행률을 보고한다.
   function ReportProgress(currentGroupIndex, rendererIndex) {
     if (renderStatus != ERenderStatus.NONE) {
+      if (renderStartedTime != null) {
+        // 템플릿 컨펌 렌더링 3시간동안 멈출경우 프로세스 중지
+        if (isTemplateConfirmRendering && Date.now() - renderStartedTime > 60 * 1000) {
+        // if (isTemplateConfirmRendering && Date.now() - renderStartedTime > 3 * 60 * 60 * 1000) {
+            console.error('TEMPLATE_CONFIRM_RENDER_STOPPED')
+            process.exit(1)
+        }
+        // 비디오 렌더링 1시간동안 멈출경우 프로세스 중지
+        else if (isVideoRendering && Date.now() - renderStartedTime > 10 * 1000) {
+        //else if (isVideoRendering && Date.now() - renderStartedTime > 1 * 60 * 60 * 1000) {
+          console.error('VIDEO_RENDER_STOPPED')
+          process.exit(1)
+        }
+      }
+
       switch (renderStatus) {
         case ERenderStatus.VIDEO:
         case ERenderStatus.MAKEMP4:

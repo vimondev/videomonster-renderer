@@ -207,15 +207,14 @@ async function func() {
         if (i == 9) throw `ERR_NO_AEP_FILE`
       }
 
+      // Rendered Frame Count 0으로 초기화 (렌더링 진행률 보고)
+      video.ResetTotalRenderedFrameCount()
       renderStatus = ERenderStatus.AUDIO
       renderStartedTime = Date.now()
       ReportProgress(currentGroupIndex, 0)
 
       // 폰트 설치
       await global.InstallFont(fontPath)
-
-      // Rendered Frame Count 0으로 초기화 (렌더링 진행률 보고)
-      video.ResetTotalRenderedFrameCount()
 
       // 오디오 렌더링
       await video.AudioRender(aepPath, audioPath, totalFrameCount)
@@ -294,15 +293,14 @@ async function func() {
         if (i == 9) throw `ERR_NO_AEP_FILE`
       }
 
+      // Rendered Frame Count 0으로 초기화 (렌더링 진행률 보고)
+      video.ResetTotalRenderedFrameCount()
       renderStatus = ERenderStatus.VIDEO
       renderStartedTime = Date.now()
       ReportProgress(currentGroupIndex, rendererIndex)
 
       // 폰트 설치
       await global.InstallFont(fontPath)
-
-      // Rendered Frame Count 0으로 초기화 (렌더링 진행률 보고)
-      video.ResetTotalRenderedFrameCount()
 
       // 비디오 렌더링 (프레임을 TIFF 파일로 전부 뽑아낸다.)
       // startFrame, endFrame까지 뽑아낸다.

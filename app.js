@@ -100,6 +100,7 @@ async function func() {
 
   await createFolder(fontPath)
   await DeleteMediaCache()
+  await global.ClearTask()
 
   const socket = require(`socket.io-client`)(`http://10.0.0.19:3000`, {
     transports: [`websocket`]
@@ -200,6 +201,8 @@ async function func() {
     console.log(data)
 
     try {
+      await global.ClearTask()
+
       // AEP 파일이 존재하는지 검사한다. (10초 내로 찾지 못하면 에러 코드를 전송한다.)
       for (let i = 0; i < 10; i++) {
         console.log(`Check aep path...`)
@@ -286,6 +289,8 @@ async function func() {
     console.log(data)
 
     try {
+      await global.ClearTask()
+      
       // AEP 파일이 존재하는지 검사한다. (10초 내로 찾지 못하면 에러 코드를 전송한다.)
       for (let i = 0; i < 10; i++) {
         console.log(`Check aep path...`)

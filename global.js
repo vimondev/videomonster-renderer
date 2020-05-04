@@ -31,6 +31,27 @@ function CopyFileAsync(src, dest) {
     })
 }
 
+function TaskKill(task) {
+    return new Promise((resolve, reject) => {
+        const spawn = require(`child_process`).spawn,
+            ls = spawn(`cmd`, [`/c`, `taskkill`, `/im`, task, `-f`])
+
+        ls.stdout.on('data', function (data) {
+            console.log('stdout: ' + data)
+        })
+
+        ls.stderr.on('data', function (data) {
+            console.log('stderr: ' + data)
+        })
+
+        ls.on('exit', function (code) {
+            console.log('child process exited with code ' + code)
+            resolve()
+        })
+    })
+
+}
+
 exports.LaunchAfterFX = () => {
     return new Promise((resolve, reject) => {
         const spawn = require(`child_process`).spawn,
@@ -71,4 +92,10 @@ exports.InstallFont = async (path) => {
                 console.log(`${file} is already installed.`)
         }
     }
+}
+
+exports.ClearTask = async () => {
+    await TaskKill('AfterFX.com')
+    await TaskKill('AfterFX.exe')
+    await TaskKill('aerender.exe')
 }

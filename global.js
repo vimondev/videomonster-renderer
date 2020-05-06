@@ -1,4 +1,5 @@
 const fs = require(`fs`)
+const path = require(`path`)
 const config = require(`./config`)
 const {
     aerenderPath,
@@ -91,6 +92,22 @@ exports.InstallFont = async (path) => {
             else 
                 console.log(`${file} is already installed.`)
         }
+    }
+}
+
+exports.InstallGlobalFont = async installFontMap => {
+    const keys = Object.keys(installFontMap)
+
+    for (let i=0; i<keys.length; i++) {
+        const filepath = installFontMap[keys[i]]
+        const filename = path.basename(filepath)
+
+        if (!(await AccessAsync(`${fontPath}/${filename}`))) {
+            await CopyFileAsync(filepath, `${fontPath}/${filename}`)
+            console.log(`${filename} is installed!`)
+        }
+        else 
+            console.log(`${filename} is already installed.`)
     }
 }
 

@@ -283,7 +283,9 @@ async function func() {
       startFrame,
       endFrame,
       frameRate,
-      hashTagString
+      hashTagString,
+      
+      installFontMap
     } = data
 
     console.log(data)
@@ -305,6 +307,8 @@ async function func() {
       renderStartedTime = Date.now()
       ReportProgress(currentGroupIndex, rendererIndex)
 
+      if (typeof installFontMap === 'object') await global.InstallGlobalFont(installFontMap)
+      
       // 폰트 설치
       await global.InstallFont(fontPath)
 

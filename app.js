@@ -412,6 +412,11 @@ async function func() {
 
     isMerging = false
   })
+
+  // 프로세스 강제 종료 (긴급용)
+  socket.on(`kill_process`, async () => {
+    process.exit(1)
+  })
 }
 
 func()

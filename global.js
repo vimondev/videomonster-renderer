@@ -124,7 +124,7 @@ exports.retry = async callback => {
         try {
             return await callback
         } catch (e) {
-            if (e && e.response) console.log(`execute failed. retry after 5 seconds...`)
+            console.log(`execute failed. retry after 5 seconds...`)
             await sleep(5000)
         }
     }
@@ -139,7 +139,7 @@ exports.retryBoolean = async callback => {
             if (result) return true
             else throw new Error()
         } catch (e) {
-            if (e && e.response) console.log(`execute failed. retry after 5 seconds...`)
+            console.log(`execute failed. retry after 5 seconds...`)
             await sleep(5000)
         }
     }

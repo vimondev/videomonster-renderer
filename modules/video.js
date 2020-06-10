@@ -7,6 +7,7 @@ const {
     aerenderPath,
     ffmpegPath
 } = config
+const { retry, retryBoolean } = require('../global')
 
 function AccessAsync(path) {
     return new Promise((resolve, reject) => {
@@ -103,7 +104,7 @@ exports.AudioRender = (aepPath, audioPath, totalFrameCount) => {
                     await sleep(1000)
 
                     // 출력된 AIF 파일이 있는지 검사
-                    if (!(await AccessAsync(`${audioPath}/audio.aif`))) {
+                    if (!(await retryBoolean(AccessAsync(`${audioPath}/audio.aif`)))) {
                         return reject(`ERR_AUDIO_FILE_NOT_EXIST (오디오 렌더링 실패)`)
                     }
                     else {
@@ -134,15 +135,15 @@ exports.VideoRender = (rendererIndex, aepPath, startFrame, endFrame, hashTagStri
             // 시작 전에 반드시 localPath 청소
             if (await AccessAsync(localPath)) {
                 if (await AccessAsync(`${localPath}/${rendererIndex}`)) {
-                    let files = await ReadDirAsync(`${localPath}/${rendererIndex}`)
+                    let files = await retry(ReadDirAsync(`${localPath}/${rendererIndex}`))
                     for (let i = 0; i < files.length; i++) {
                         // 기존 팡닐들 모두 삭제
-                        await UnlinkAsync(`${localPath}/${rendererIndex}/${files[i]}`)
+                        await retry(UnlinkAsync(`${localPath}/${rendererIndex}/${files[i]}`))
                     }
                 }
                 // 기존에 생성된 폴더가 없을 경우 생성
                 else
-                    await MkdirAsync(`${localPath}/${rendererIndex}`)
+                    await retry(MkdirAsync(`${localPath}/${rendererIndex}`))
             }
 
             // startFrame ~ endFrame까지 부분 렌더링 (TIFF로 뽑아낸다.)
@@ -181,7 +182,7 @@ exports.VideoRender = (rendererIndex, aepPath, startFrame, endFrame, hashTagStri
                     totalRenderedFrameCount = Number(endFrame) - Number(startFrame) + 1
 
                     await sleep(1000)
-                    let files = (await ReadDirAsync(`${localPath}/${rendererIndex}`)).sort()
+                    let files = (await retry(ReadDirAsync(`${localPath}/${rendererIndex}`))).sort()
 
                     // 각 TIFF 파일을 Rename해준다. (ffmpeg 돌리려면 프레임 숫자가 0부터 시작해야함.)
                     for (let i=0; i<files.length; i++) {
@@ -190,7 +191,7 @@ exports.VideoRender = (rendererIndex, aepPath, startFrame, endFrame, hashTagStri
                         digit += i
 
                         let filename = `frames${digit}.tif`
-                        await RenameAsync(`${localPath}/${rendererIndex}/${files[i]}`, `${localPath}/${rendererIndex}/${filename}`)
+                        await retry(RenameAsync(`${localPath}/${rendererIndex}/${files[i]}`, `${localPath}/${rendererIndex}/${filename}`))
                     }
                 }
                 catch (e) {
@@ -246,11 +247,11 @@ exports.MakeMP4 = (rendererIndex, videoPath, hashTagString, frameRate) => {
                     await sleep(1000)
     
                     // 렌더링이 완료된 후 TIFF 파일 제거
-                    let files = await ReadDirAsync(`${localPath}/${rendererIndex}`)
+                    let files = await retry(ReadDirAsync(`${localPath}/${rendererIndex}`))
                     for (let i = 0; i < files.length; i++) {
                         if (await AccessAsync(`${localPath}/${rendererIndex}/${files[i]}`)) {
                             try {
-                                await UnlinkAsync(`${localPath}/${rendererIndex}/${files[i]}`)
+                                await retry(UnlinkAsync(`${localPath}/${rendererIndex}/${files[i]}`))
                             } catch (e) {
                                 console.log(e)
                             }
@@ -258,7 +259,7 @@ exports.MakeMP4 = (rendererIndex, videoPath, hashTagString, frameRate) => {
                     }
     
                     // 출력된 mp4 파일이 존재하지 않으면 실패
-                    if (!(await AccessAsync(`${videoPath}/out${rendererIndex}.mp4`))) {
+                    if (!(await retryBoolean(AccessAsync(`${videoPath}/out${rendererIndex}.mp4`)))) {
                         return reject(`ERR_MP4_NOT_EXIST (${rendererIndex}번 비디오 렌더러 렌더링 실패)`)
                     }
                     else {
@@ -290,7 +291,7 @@ exports.Merge = (rendererCount, videoPath) => {
                 fileBody += `file out${i}.mp4\n`
             }
 
-            await WriteFileAsync(`${videoPath}/file.txt`, fileBody)
+            await retry(WriteFileAsync(`${videoPath}/file.txt`, fileBody))
 
             // merge를 수행한다.
             const spawn = require(`child_process`).spawn,
@@ -311,11 +312,11 @@ exports.Merge = (rendererCount, videoPath) => {
                     await sleep(1000)
     
                     // 필요없는 파일들을 제거해준다.
-                    let files = await ReadDirAsync(`${videoPath}`)
+                    let files = await retry(ReadDirAsync(`${videoPath}`))
                     for (let i = 0; i < files.length; i++) {
                         if ((files[i].includes(`out`, 0) && files[i].includes(`.mp4`, 0) || files[i] == `file.txt`) && await AccessAsync(`${videoPath}/${files[i]}`)) {
                             try {
-                                await UnlinkAsync(`${videoPath}/${files[i]}`)
+                                await retry(UnlinkAsync(`${videoPath}/${files[i]}`))
                             } catch (e) {
                                 console.log(e)
                             }
@@ -323,7 +324,7 @@ exports.Merge = (rendererCount, videoPath) => {
                     }
     
                     // 출력된 mp4 파일이 존재하지 않으면 실패
-                    if (!(await AccessAsync(`${videoPath}/merge.mp4`))) {
+                    if (!(await retryBoolean(AccessAsync(`${videoPath}/merge.mp4`)))) {
                         return reject(`ERR_MERGE_FILE_NOT_EXIST (렌더링 실패)`)
                     }
                     else {
@@ -368,11 +369,11 @@ exports.ConcatAudio = (videoPath, audioPath) => {
                     await sleep(1000)
     
                     // 필요없는 파일을 제거해준다.
-                    let files = await ReadDirAsync(`${videoPath}`)
+                    let files = await retry(ReadDirAsync(`${videoPath}`))
                     for (let i = 0; i < files.length; i++) {
                         if (files[i] == `merge.mp4` && await AccessAsync(`${videoPath}/${files[i]}`)) {
                             try {
-                                await UnlinkAsync(`${videoPath}/${files[i]}`)
+                                await retry(UnlinkAsync(`${videoPath}/${files[i]}`))
                             } catch (e) {
                                 console.log(e)
                             }
@@ -380,7 +381,7 @@ exports.ConcatAudio = (videoPath, audioPath) => {
                     }
     
                     // 출력된 mp4 파일이 존재하지 않으면 실패
-                    if (!(await AccessAsync(`${videoPath}/result.mp4`))) {
+                    if (!(await retryBoolean(AccessAsync(`${videoPath}/result.mp4`)))) {
                         return reject(`ERR_RESULT_FILE_NOT_EXIST (렌더링 실패)`)
                     }
                     else {
@@ -442,7 +443,7 @@ exports.ScaleWatermark = (watermarkPath, videoPath, width, height) => {
                     await sleep(1000)
     
                     // 출력된 png 파일이 존재하지 않으면 실패
-                    if (!(await AccessAsync(`${videoPath}/scaledwatermark.png`))) {
+                    if (!(await retryBoolean(AccessAsync(`${videoPath}/scaledwatermark.png`)))) {
                         return reject(`ERR_SCALED_WATERMARK_NOT_FOUND (렌더링 실패)`)
                     }
                     else {
@@ -499,7 +500,7 @@ exports.PutWatermark = (videoPath, width, height, scaledData) => {
                     await sleep(1000)
     
                     // 출력된 mp4 파일이 존재하지 않으면 실패
-                    if (!(await AccessAsync(`${videoPath}/sealed.mp4`))) {
+                    if (!(await retryBoolean(AccessAsync(`${videoPath}/sealed.mp4`)))) {
                         return reject(`ERR_SEALED_MP4_NOT_FOUND (렌더링 실패)`)
                     }
                     else {

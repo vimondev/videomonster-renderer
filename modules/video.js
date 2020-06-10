@@ -7,7 +7,7 @@ const {
     aerenderPath,
     ffmpegPath
 } = config
-const { retry } = require('../global')
+const { retry, retryBoolean } = require('../global')
 
 function AccessAsync(path) {
     return new Promise((resolve, reject) => {
@@ -104,7 +104,7 @@ exports.AudioRender = (aepPath, audioPath, totalFrameCount) => {
                     await sleep(1000)
 
                     // 출력된 AIF 파일이 있는지 검사
-                    if (!(await AccessAsync(`${audioPath}/audio.aif`))) {
+                    if (!(await retryBoolean(AccessAsync(`${audioPath}/audio.aif`)))) {
                         return reject(`ERR_AUDIO_FILE_NOT_EXIST (오디오 렌더링 실패)`)
                     }
                     else {
@@ -259,7 +259,7 @@ exports.MakeMP4 = (rendererIndex, videoPath, hashTagString, frameRate) => {
                     }
     
                     // 출력된 mp4 파일이 존재하지 않으면 실패
-                    if (!(await AccessAsync(`${videoPath}/out${rendererIndex}.mp4`))) {
+                    if (!(await retryBoolean(AccessAsync(`${videoPath}/out${rendererIndex}.mp4`)))) {
                         return reject(`ERR_MP4_NOT_EXIST (${rendererIndex}번 비디오 렌더러 렌더링 실패)`)
                     }
                     else {
@@ -324,7 +324,7 @@ exports.Merge = (rendererCount, videoPath) => {
                     }
     
                     // 출력된 mp4 파일이 존재하지 않으면 실패
-                    if (!(await AccessAsync(`${videoPath}/merge.mp4`))) {
+                    if (!(await retryBoolean(AccessAsync(`${videoPath}/merge.mp4`)))) {
                         return reject(`ERR_MERGE_FILE_NOT_EXIST (렌더링 실패)`)
                     }
                     else {
@@ -381,7 +381,7 @@ exports.ConcatAudio = (videoPath, audioPath) => {
                     }
     
                     // 출력된 mp4 파일이 존재하지 않으면 실패
-                    if (!(await AccessAsync(`${videoPath}/result.mp4`))) {
+                    if (!(await retryBoolean(AccessAsync(`${videoPath}/result.mp4`)))) {
                         return reject(`ERR_RESULT_FILE_NOT_EXIST (렌더링 실패)`)
                     }
                     else {
@@ -443,7 +443,7 @@ exports.ScaleWatermark = (watermarkPath, videoPath, width, height) => {
                     await sleep(1000)
     
                     // 출력된 png 파일이 존재하지 않으면 실패
-                    if (!(await AccessAsync(`${videoPath}/scaledwatermark.png`))) {
+                    if (!(await retryBoolean(AccessAsync(`${videoPath}/scaledwatermark.png`)))) {
                         return reject(`ERR_SCALED_WATERMARK_NOT_FOUND (렌더링 실패)`)
                     }
                     else {
@@ -500,7 +500,7 @@ exports.PutWatermark = (videoPath, width, height, scaledData) => {
                     await sleep(1000)
     
                     // 출력된 mp4 파일이 존재하지 않으면 실패
-                    if (!(await AccessAsync(`${videoPath}/sealed.mp4`))) {
+                    if (!(await retryBoolean(AccessAsync(`${videoPath}/sealed.mp4`)))) {
                         return reject(`ERR_SEALED_MP4_NOT_FOUND (렌더링 실패)`)
                     }
                     else {

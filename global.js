@@ -116,3 +116,16 @@ exports.ClearTask = async () => {
     await TaskKill('AfterFX.exe')
     await TaskKill('aerender.exe')
 }
+
+
+exports.retry = async callback => {
+    for (let i = 0; i < 24; i++) {
+        try {
+            return await callback
+        } catch (e) {
+            if (e && e.response) console.log(`execute failed. retry after 5 seconds...`)
+            await sleep(5000)
+        }
+    }
+    throw new Error('CALLBACK EXECUTE FAILED!!')
+}

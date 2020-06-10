@@ -117,6 +117,7 @@ exports.ClearTask = async () => {
     await TaskKill('aerender.exe')
 }
 
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 exports.retry = async callback => {
     for (let i = 0; i < 24; i++) {

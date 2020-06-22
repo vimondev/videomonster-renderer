@@ -85,12 +85,15 @@ exports.InstallFont = async (path) => {
         const files = await ReadDirAsync(path)
         for (let i=0; i<files.length; i++) {
             const file = files[i]
-            if (!(await AccessAsync(`${fontPath}/${file}`))) {
-                await CopyFileAsync(`${path}/${file}`, `${fontPath}/${file}`)
-                console.log(`${file} is installed!`)
-            }
-            else 
-                console.log(`${file} is already installed.`)
+
+            await CopyFileAsync(`${path}/${file}`, `${fontPath}/${file}`)
+            console.log(`${file} is installed!`)
+            // if (!(await AccessAsync(`${fontPath}/${file}`))) {
+            //     await CopyFileAsync(`${path}/${file}`, `${fontPath}/${file}`)
+            //     console.log(`${file} is installed!`)
+            // }
+            // else 
+            //     console.log(`${file} is already installed.`)
         }
     }
 }
@@ -102,12 +105,14 @@ exports.InstallGlobalFont = async installFontMap => {
         const filepath = installFontMap[keys[i]]
         const filename = path.basename(filepath)
 
-        if (!(await AccessAsync(`${fontPath}/${filename}`))) {
-            await CopyFileAsync(filepath, `${fontPath}/${filename}`)
-            console.log(`${filename} is installed!`)
-        }
-        else 
-            console.log(`${filename} is already installed.`)
+        await CopyFileAsync(filepath, `${fontPath}/${filename}`)
+        console.log(`${filename} is installed!`)
+        // if (!(await AccessAsync(`${fontPath}/${filename}`))) {
+        //     await CopyFileAsync(filepath, `${fontPath}/${filename}`)
+        //     console.log(`${filename} is installed!`)
+        // }
+        // else 
+        //     console.log(`${filename} is already installed.`)
     }
 }
 

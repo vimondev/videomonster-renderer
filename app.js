@@ -91,14 +91,10 @@ async function func() {
   const config = require(`./config`)
   const video = require(`./modules/video`)
   const global = require(`./global`)
-  const {
-    localPath,
-    fontPath
-  } = config
+  const fsAsync = require(`./modules/fsAsync`)
 
   console.log(`start!`)
 
-  await createFolder(fontPath)
   await DeleteMediaCache()
   await global.ClearTask()
 
@@ -218,6 +214,8 @@ async function func() {
       ReportProgress(currentGroupIndex, 0)
 
       // 폰트 설치
+      await fsAsync.UnlinkFolderRecursive(config.fontPath)
+      await createFolder(config.fontPath)
       await global.InstallFont(fontPath)
 
       // 오디오 렌더링
@@ -306,11 +304,13 @@ async function func() {
       renderStatus = ERenderStatus.VIDEO
       renderStartedTime = Date.now()
       ReportProgress(currentGroupIndex, rendererIndex)
-
-      if (typeof installFontMap === 'object') await global.InstallGlobalFont(installFontMap)
       
       // 폰트 설치
+      await fsAsync.UnlinkFolderRecursive(config.fontPath)
+      await createFolder(config.fontPath)
+      
       await global.InstallFont(fontPath)
+      if (typeof installFontMap === 'object') await global.InstallGlobalFont(installFontMap)
 
       // 비디오 렌더링 (프레임을 TIFF 파일로 전부 뽑아낸다.)
       // startFrame, endFrame까지 뽑아낸다.

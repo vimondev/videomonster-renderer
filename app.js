@@ -304,13 +304,13 @@ async function func() {
       renderStatus = ERenderStatus.VIDEO
       renderStartedTime = Date.now()
       ReportProgress(currentGroupIndex, rendererIndex)
-
-      if (typeof installFontMap === 'object') await global.InstallGlobalFont(installFontMap)
       
       // 폰트 설치
       await fsAsync.UnlinkFolderRecursive(config.fontPath)
       await createFolder(config.fontPath)
+      
       await global.InstallFont(fontPath)
+      if (typeof installFontMap === 'object') await global.InstallGlobalFont(installFontMap)
 
       // 비디오 렌더링 (프레임을 TIFF 파일로 전부 뽑아낸다.)
       // startFrame, endFrame까지 뽑아낸다.

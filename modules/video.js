@@ -402,16 +402,13 @@ exports.ConcatAudio = (videoPath, audioPath) => {
 }
 
 // 오디오 파일을 영상에 입히는 작업
-exports.ScaleWatermark = (watermarkPath, videoPath, width, height) => {
+exports.ScaleWatermark = (watermarkPath, baseWatermarkWidth, baseWatermarkHeight, videoPath, videoWidth, videoHeight, outputFileName) => {
     return new Promise((resolve, reject) => {
         try {
             console.log(`Watermark Scaling Start!`)
 
             const threshold = 1080
-            const currentThreshold = width < height ? width : height
-
-            const baseWatermarkWidth = 275
-            const baseWatermarkHeight = 115
+            const currentThreshold = videoWidth < videoHeight ? videoWidth : videoHeight
 
             let scaledWatermarkWidth = 0
             let scaledWatermarkHeight = 0
@@ -426,7 +423,7 @@ exports.ScaleWatermark = (watermarkPath, videoPath, width, height) => {
 
             // 워터마크 크기를 조정한다.
             const spawn = require(`child_process`).spawn,
-                ls = spawn(`cmd`, [`/c`, `ffmpeg`, `-i`, watermarkPath, '-vf', `scale=${scaledWatermarkWidth}:${scaledWatermarkHeight}`, `${videoPath}/scaledwatermark.png`, `-y`], { cwd: ffmpegPath })
+                ls = spawn(`cmd`, [`/c`, `ffmpeg`, `-i`, watermarkPath, '-vf', `scale=${scaledWatermarkWidth}:${scaledWatermarkHeight}`, `${videoPath}/${outputFileName}`, `-y`], { cwd: ffmpegPath })
 
             ls.stdout.on('data', function (data) {
                 console.log('stdout: ' + data)
@@ -443,7 +440,7 @@ exports.ScaleWatermark = (watermarkPath, videoPath, width, height) => {
                     await sleep(1000)
     
                     // 출력된 png 파일이 존재하지 않으면 실패
-                    if (!(await retryBoolean(AccessAsync(`${videoPath}/scaledwatermark.png`)))) {
+                    if (!(await retryBoolean(AccessAsync(`${videoPath}/${outputFileName}`)))) {
                         return reject(`ERR_SCALED_WATERMARK_NOT_FOUND (렌더링 실패)`)
                     }
                     else {
@@ -468,22 +465,14 @@ exports.ScaleWatermark = (watermarkPath, videoPath, width, height) => {
 }
 
 // 오디오 파일을 영상에 입히는 작업
-exports.PutWatermark = (videoPath, width, height, scaledData) => {
+exports.PutWatermark = (videoPath, inputFilePath, outputFilePath, watermarkFileName, watermarkPositionX, watermarkPositionY) => {
     return new Promise((resolve, reject) => {
         try {
             console.log(`Put Watermark Start!`)
 
-            const { scaleFactor, scaledWatermarkWidth, scaledWatermarkHeight } = scaledData
-
-            const scaledGapX = Math.floor(70 * scaleFactor)
-            const scaledGapY = Math.floor(60 * scaleFactor)
-
-            const watermarkPositionX = scaledGapX
-            const watermarkPositionY = height - scaledWatermarkHeight - scaledGapY
-
             // 워터마크를 씌운다.
             const spawn = require(`child_process`).spawn,
-                ls = spawn(`cmd`, [`/c`, `ffmpeg`, `-i`, `${videoPath}/result.mp4`, '-i', `${videoPath}/scaledwatermark.png`, '-filter_complex', `overlay=${watermarkPositionX}:${watermarkPositionY}`, `${videoPath}/sealed.mp4`, `-y`], { cwd: ffmpegPath })
+                ls = spawn(`cmd`, [`/c`, `ffmpeg`, `-i`, `${videoPath}/${inputFilePath}`, '-i', `${videoPath}/${watermarkFileName}`, '-filter_complex', `overlay=${watermarkPositionX}:${watermarkPositionY}`, `${videoPath}/${outputFilePath}`, `-y`], { cwd: ffmpegPath })
 
             ls.stdout.on('data', function (data) {
                 console.log('stdout: ' + data)
@@ -500,7 +489,7 @@ exports.PutWatermark = (videoPath, width, height, scaledData) => {
                     await sleep(1000)
     
                     // 출력된 mp4 파일이 존재하지 않으면 실패
-                    if (!(await retryBoolean(AccessAsync(`${videoPath}/sealed.mp4`)))) {
+                    if (!(await retryBoolean(AccessAsync(`${videoPath}/${outputFilePath}`)))) {
                         return reject(`ERR_SEALED_MP4_NOT_FOUND (렌더링 실패)`)
                     }
                     else {

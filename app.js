@@ -418,7 +418,7 @@ async function func() {
             originalFileName = 'temp.mp4'
           }
 
-          const { scaleFactor, scaledWatermarkWidth } = await video.ScaleWatermark(watermarkPath, 244, 60, videoPath, width, height, scaledWatermarkFileName)
+          const { scaleFactor, scaledWatermarkWidth } = await video.ScaleWatermark(watermarkPath2, 244, 60, videoPath, width, height, scaledWatermarkFileName)
   
           const scaledGapX = Math.floor(40 * scaleFactor)
           const scaledGapY = Math.floor(40 * scaleFactor)

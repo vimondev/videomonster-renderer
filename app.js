@@ -381,6 +381,7 @@ async function func() {
       width,
       height,
       watermarkPath,
+      watermarkPath2,
       isUseWatermark
     } = data
     console.log(data)
@@ -393,8 +394,40 @@ async function func() {
       await video.ConcatAudio(videoPath, audioPath)
 
       if (isUseWatermark) {
-        const scaledData = await video.ScaleWatermark(watermarkPath, videoPath, width, height)
-        await video.PutWatermark(videoPath, width, height, scaledData)
+        const scaledWatermarkFileName = 'scaledwatermark.png'
+
+        // 좌측 하단 워터마크
+        if (watermarkPath) {
+          let sealedFileName = 'sealed.mp4'
+          if (watermarkPath2) sealedFileName = 'temp.mp4'
+  
+          const { scaleFactor, scaledWatermarkHeight } = await video.ScaleWatermark(watermarkPath, 275, 115, videoPath, width, height, scaledWatermarkFileName)
+  
+          const scaledGapX = Math.floor(70 * scaleFactor)
+          const scaledGapY = Math.floor(60 * scaleFactor)
+  
+          const watermarkPositionX = scaledGapX
+          const watermarkPositionY = height - scaledWatermarkHeight - scaledGapY
+  
+          await video.PutWatermark(videoPath, 'result.mp4', sealedFileName, scaledWatermarkFileName, watermarkPositionX, watermarkPositionY)
+        }
+        // 우측 상단 워터마크
+        if (watermarkPath2) {
+          let originalFileName = 'result.mp4'
+          if (watermarkPath) {
+            originalFileName = 'temp.mp4'
+          }
+
+          const { scaleFactor, scaledWatermarkWidth } = await video.ScaleWatermark(watermarkPath2, 244, 60, videoPath, width, height, scaledWatermarkFileName)
+  
+          const scaledGapX = Math.floor(40 * scaleFactor)
+          const scaledGapY = Math.floor(40 * scaleFactor)
+  
+          const watermarkPositionX = width - scaledWatermarkWidth - scaledGapX
+          const watermarkPositionY = scaledGapY
+  
+          await video.PutWatermark(videoPath, originalFileName, 'sealed.mp4', scaledWatermarkFileName, watermarkPositionX, watermarkPositionY)
+        }
       }
 
       socket.emit(`merge_completed`, {

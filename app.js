@@ -214,7 +214,9 @@ async function func() {
       ReportProgress(currentGroupIndex, 0)
 
       // 폰트 설치
-      await fsAsync.UnlinkFolderRecursive(config.fontPath)
+      if (await fsAsync.IsExistAsync(config.fontPath)) {
+        await fsAsync.UnlinkFolderRecursive(config.fontPath)
+      }
       await createFolder(config.fontPath)
       await global.InstallFont(fontPath)
 
@@ -306,7 +308,9 @@ async function func() {
       ReportProgress(currentGroupIndex, rendererIndex)
       
       // 폰트 설치
-      await fsAsync.UnlinkFolderRecursive(config.fontPath)
+      if (await fsAsync.IsExistAsync(config.fontPath)) {
+        await fsAsync.UnlinkFolderRecursive(config.fontPath)
+      }
       await createFolder(config.fontPath)
       
       await global.InstallFont(fontPath)

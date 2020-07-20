@@ -2,8 +2,6 @@ const fs = require(`fs`)
 const jimp = require(`jimp`)
 const config = require(`../config`)
 const {
-    templatePath,
-    outputPath,
     localPath,
     aerenderPath
 } = config

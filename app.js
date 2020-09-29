@@ -98,7 +98,7 @@ async function func() {
   await DeleteMediaCache()
   await global.ClearTask()
 
-  const socket = require(`socket.io-client`)(`http://10.0.0.7:3000`, {
+  const socket = require(`socket.io-client`)(`http://10.0.0.19:3000`, {
     transports: [`websocket`]
   })
 

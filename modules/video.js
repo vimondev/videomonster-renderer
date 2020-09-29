@@ -247,6 +247,7 @@ exports.MakeMP4 = (rendererIndex, videoPath, hashTagString, frameRate) => {
                     // 렌더링이 완료된 후 TIFF 파일 제거
                     let files = await retry(ReadDirAsync(`${localPath}/${rendererIndex}`))
                     for (let i = 0; i < files.length; i++) {
+                        files[i] = files[i].toLowerCase()
                         if (await AccessAsync(`${localPath}/${rendererIndex}/${files[i]}`)) {
                             try {
                                 await retry(UnlinkAsync(`${localPath}/${rendererIndex}/${files[i]}`))
@@ -312,6 +313,7 @@ exports.Merge = (rendererCount, videoPath) => {
                     // 필요없는 파일들을 제거해준다.
                     let files = await retry(ReadDirAsync(`${videoPath}`))
                     for (let i = 0; i < files.length; i++) {
+                        files[i] = files[i].toLowerCase()
                         if ((files[i].includes(`out`, 0) && files[i].includes(`.mp4`, 0) || files[i] == `file.txt`) && await AccessAsync(`${videoPath}/${files[i]}`)) {
                             try {
                                 await retry(UnlinkAsync(`${videoPath}/${files[i]}`))
@@ -369,6 +371,7 @@ exports.ConcatAudio = (videoPath, audioPath) => {
                     // 필요없는 파일을 제거해준다.
                     let files = await retry(ReadDirAsync(`${videoPath}`))
                     for (let i = 0; i < files.length; i++) {
+                        files[i] = files[i].toLowerCase()
                         if (files[i] == `merge.mp4` && await AccessAsync(`${videoPath}/${files[i]}`)) {
                             try {
                                 await retry(UnlinkAsync(`${videoPath}/${files[i]}`))

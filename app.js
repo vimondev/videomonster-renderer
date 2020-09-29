@@ -223,6 +223,8 @@ async function func() {
       // 오디오 렌더링
       await video.AudioRender(aepPath, audioPath, totalFrameCount)
 
+      await sleep(10000)
+
       // 비디오 렌더링 (모든 프레임을 TIFF 파일로 전부 뽑아낸다.)
       renderStatus = ERenderStatus.VIDEO
       const res = await video.VideoRender(0, aepPath, startFrame, endFrame, hashTagString)

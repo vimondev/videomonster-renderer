@@ -85,8 +85,8 @@ exports.AudioRender = (aepPath, audioPath, totalFrameCount) => {
 
             // 오디오 렌더링을 수행한다. (분산 렌더링 없이 처음부터 끝까지)
             const spawn = require(`child_process`).spawn,
-                
-                ls = spawn(`cmd`, [`/c`, `aerender`, `-project`, `"${aepPath}"`, `-comp`, `"#Target"`, `-s`, `0`, `-e`, `${Number(totalFrameCount) - 1}`, `-RStemplate`, `"Best Settings"`, `-OMtemplate`, `"AIFF 48kHz"`, `-output`, `"${audioPath}/audio.aif"`, `-continueOnMissingFootage`], { cwd: aerenderPath })
+
+                ls = spawn(`cmd`, [`/c`, `aerender`, `-project`, `"${aepPath}"`, `-comp`, `"#Target"`, `-s`, `0`, `-e`, `${Number(totalFrameCount) - 1}`, `-RStemplate`, `"Best Settings"`, `-OMtemplate`, `"AIFF 48kHz"`, `-output`, `"${audioPath}"`, `-continueOnMissingFootage`], { cwd: aerenderPath })
 
             ls.stdout.on('data', function (data) {
                 console.log('stdout: ' + data)
@@ -102,7 +102,7 @@ exports.AudioRender = (aepPath, audioPath, totalFrameCount) => {
                     await sleep(1000)
 
                     // 출력된 AIF 파일이 있는지 검사
-                    if (!(await retryBoolean(AccessAsync(`${audioPath}/audio.aif`)))) {
+                    if (!(await retryBoolean(AccessAsync(`${audioPath}`)))) {
                         return reject(`ERR_AUDIO_FILE_NOT_EXIST (오디오 렌더링 실패)`)
                     }
                     else {
@@ -148,7 +148,7 @@ exports.VideoRender = (rendererIndex, aepPath, startFrame, endFrame, hashTagStri
             const spawn = require(`child_process`).spawn,
                 ls = spawn(`cmd`, [`/c`, `aerender`, `-project`, `"${aepPath}"`, `-comp`, `"#Target"`, `-s`, `${startFrame}`, `-e`, `${endFrame}`, `-RStemplate`, `"Best Settings"`, `-OMtemplate`, `"TIFF Sequence with Alpha"`, `-output`, `"${localPath}/${rendererIndex}/frames[${hashTagString}].tif"`, `-continueOnMissingFootage`], { cwd: aerenderPath })
 
-                // 프로세스 수행 중 print 이벤트 발생 시 콜백
+            // 프로세스 수행 중 print 이벤트 발생 시 콜백
             ls.stdout.on('data', function (data) {
                 data = String(data)
                 console.log('stdout: ' + data)
@@ -157,7 +157,7 @@ exports.VideoRender = (rendererIndex, aepPath, startFrame, endFrame, hashTagStri
                 if (data.includes(`PROGRESS:`) && data.includes(`(`) && data.includes(`)`)) {
                     // totalRenderedFrameCount을 하나씩 증가시켜준다. (단, 총 프레임 수보다 더 값이 높아지지 않게 막아놓음)
                     totalRenderedFrameCount = Math.min(totalRenderedFrameCount + 1, Number(endFrame) - Number(startFrame) + 1)
-                    
+
                     const startIndex = data.indexOf(`(`) + 1
                     const endIndex = data.indexOf(`)`)
 
@@ -217,10 +217,10 @@ exports.MakeMP4 = (rendererIndex, videoPath, hashTagString, frameRate) => {
             digit += hashTagString.length
 
             // h264 인코딩을 수행한다.
-            const spawn = require(`child_process`).spawn,                
+            const spawn = require(`child_process`).spawn,
                 ls = spawn(`cmd`, [`/c`, `ffmpeg`, `-framerate`, `${frameRate}`, `-i`, `${localPath}/${rendererIndex}/frames%${digit}d.tif`, `-c:v`, `libx264`, `-pix_fmt`, `yuv420p`, `-r`, `${frameRate}`, `${videoPath}/out${rendererIndex}.mp4`, `-y`], { cwd: ffmpegPath })
 
-                // 프로세스 수행 중 print 이벤트 발생 시 콜백
+            // 프로세스 수행 중 print 이벤트 발생 시 콜백
             ls.stdout.on('data', function (data) {
                 console.log('stdout: ' + data)
             })
@@ -233,7 +233,7 @@ exports.MakeMP4 = (rendererIndex, videoPath, hashTagString, frameRate) => {
                 if (str.includes(`frame=`) && str.includes(`fps`)) {
                     const startIndex = str.indexOf(`frame=`, 0) + 6
                     const endIndex = str.indexOf(`fps`)
-    
+
                     totalConvertedFrameCount = Number(str.substring(startIndex, endIndex))
                 }
             })
@@ -243,7 +243,7 @@ exports.MakeMP4 = (rendererIndex, videoPath, hashTagString, frameRate) => {
 
                 try {
                     await sleep(1000)
-    
+
                     // 렌더링이 완료된 후 TIFF 파일 제거
                     let files = await retry(ReadDirAsync(`${localPath}/${rendererIndex}`))
                     for (let i = 0; i < files.length; i++) {
@@ -255,7 +255,7 @@ exports.MakeMP4 = (rendererIndex, videoPath, hashTagString, frameRate) => {
                             }
                         }
                     }
-    
+
                     // 출력된 mp4 파일이 존재하지 않으면 실패
                     if (!(await retryBoolean(AccessAsync(`${videoPath}/out${rendererIndex}.mp4`)))) {
                         return reject(`ERR_MP4_NOT_EXIST (${rendererIndex}번 비디오 렌더러 렌더링 실패)`)
@@ -305,10 +305,10 @@ exports.Merge = (rendererCount, videoPath) => {
 
             ls.on('exit', async function (code) {
                 console.log('child process exited with code ' + code)
-                
+
                 try {
                     await sleep(1000)
-    
+
                     // 필요없는 파일들을 제거해준다.
                     let files = await retry(ReadDirAsync(`${videoPath}`))
                     for (let i = 0; i < files.length; i++) {
@@ -320,7 +320,7 @@ exports.Merge = (rendererCount, videoPath) => {
                             }
                         }
                     }
-    
+
                     // 출력된 mp4 파일이 존재하지 않으면 실패
                     if (!(await retryBoolean(AccessAsync(`${videoPath}/merge.mp4`)))) {
                         return reject(`ERR_MERGE_FILE_NOT_EXIST (렌더링 실패)`)
@@ -342,6 +342,130 @@ exports.Merge = (rendererCount, videoPath) => {
     })
 }
 
+// Audio Fade In/Out 효과 적용
+exports.AudioFadeInOut = (audioPath, startTime, fadeDuration, videoDuration) => {
+    return new Promise(async (resolve, reject) => {
+        async function FadeInProc(inputAudioPath, outputAudioPath) {
+            return new Promise((resolve, reject) => {
+                // 오디오 페이드 인
+                console.log(`Audio Apply FadeIn Start!`)
+    
+                // 오디오 파일을 영상에 입혀준다. (AAC 코덱)
+                const spawn = require(`child_process`).spawn,
+                    ls = spawn(`cmd`,
+                        [
+                            `/c`, `ffmpeg`, `-i`, inputAudioPath,
+                            `-af`, `"afade=t=in:st=${startTime}:d=${fadeDuration}"`,
+                            `-i`, outputAudioPath
+                        ]
+                        , { cwd: ffmpegPath })
+    
+                ls.stdout.on('data', function (data) { console.log('stdout: ' + data) })
+                ls.stderr.on('data', function (data) { console.log('stderr: ' + data) })
+                ls.on('exit', async function (code) {
+                    console.log('child process exited with code ' + code)
+    
+                    try {
+                        await sleep(1000)
+    
+                        // 출력된 mp4 파일이 존재하지 않으면 실패
+                        if (!(await retryBoolean(AccessAsync(outputAudioPath)))) {
+                            return reject(`ERR_RESULT_FILE_NOT_EXIST (렌더링 실패)`)
+                        }
+                        else {
+                            return resolve()
+                        }
+                    }
+                    catch (e) {
+                        console.log(e)
+                        reject(`ERR_APPLY_FADE_AUDIO_FAILED (렌더링 실패)`)
+                    }
+                })
+            })
+        }
+    
+        async function FadeOutProc(inputAudioPath, outputAudioPath) {
+            return new Promise((resolve, reject) => {
+                // 오디오 페이드 아웃
+                console.log(`Audio Apply FadeOut Start!`)
+    
+                // 오디오 파일을 영상에 입혀준다. (AAC 코덱)
+                const spawn = require(`child_process`).spawn,
+                    ls = spawn(`cmd`,
+                        [
+                            `/c`, `ffmpeg`, `-i`, inputAudioPath, 
+                            `-af`, `"afade=t=out:st=${videoDuration - startTime}:d=${fadeDuration}"`, 
+                            `-i`, outputAudioPath
+                        ]
+                        , { cwd: ffmpegPath })
+    
+                ls.stdout.on('data', function (data) { console.log('stdout: ' + data) })
+                ls.stderr.on('data', function (data) { console.log('stderr: ' + data) })
+                ls.on('exit', async function (code) {
+                    console.log('child process exited with code ' + code)
+    
+                    try {
+                        await sleep(1000)
+    
+                        // 필요없는 파일을 제거해준다.
+                        let files = await retry(ReadDirAsync(`${localPath}`))
+                        for (let i = 0; i < files.length; i++) {
+                            if (await AccessAsync(inputAudioPath)) {
+                                try {
+                                    await retry(UnlinkAsync(inputAudioPath))
+                                } catch (e) {
+                                    console.log(e)
+                                }
+                            }
+                        }
+    
+                        // 출력된 mp4 파일이 존재하지 않으면 실패
+                        if (!(await retryBoolean(AccessAsync(outputAudioPath)))) {
+                            return reject(`ERR_RESULT_FILE_NOT_EXIST (렌더링 실패)`)
+                        }
+                        else {
+                            return resolve()
+                        }
+                    }
+                    catch (e) {
+                        console.log(e)
+                        reject(`ERR_CONCAT_AUDIO_FAILED (렌더링 실패)`)
+                    }
+                })
+        })
+        }    
+
+        const fadeInAudioOutputPath = `${localPath}/audio_in.m4a`
+        const fadeOutAudioOutputPath = `${localPath}/audio_in_out.m4a`
+
+        try {
+            console.log(`Audio Apply FadeInOut Ready!`)
+
+            // 시작 전에 반드시 localPath 청소
+            if (await AccessAsync(`${localPath}`)) {
+                let files = await retry(ReadDirAsync(`${localPath}`))
+                for (let i = 0; i < files.length; i++) {
+                    // 기존 파일들 모두 삭제
+                    await retry(UnlinkAsync(fadeInAudioOutputPath))
+                    await retry(UnlinkAsync(fadeOutAudioOutputPath))
+                }
+            }
+            // 기존에 생성된 폴더가 없을 경우 생성
+            else
+                await retry(MkdirAsync(`${localPath}`))
+
+            await FadeInProc(audioPath, fadeInAudioOutputPath)
+            await FadeOutProc(fadeInAudioOutputPath, fadeOutAudioOutputPath)
+
+            resolve(fadeOutAudioOutputPath)
+        }
+        catch (e) {
+            console.log(e)
+            reject(`ERR_CONCAT_AUDIO_FAILED (렌더링 실패)`)
+        }
+    })
+}
+
 // 오디오 파일을 영상에 입히는 작업
 exports.ConcatAudio = (videoPath, audioPath) => {
     return new Promise((resolve, reject) => {
@@ -350,7 +474,7 @@ exports.ConcatAudio = (videoPath, audioPath) => {
 
             // 오디오 파일을 영상에 입혀준다. (AAC 코덱)
             const spawn = require(`child_process`).spawn,
-                ls = spawn(`cmd`, [`/c`, `ffmpeg`, `-i`, `${videoPath}/merge.mp4`, `-i`, `${audioPath}/audio.aif`, `-c:v`, `copy`, `-c:a`, `aac`, `-b:a`, `256k`, `${videoPath}/result.mp4`, `-y`], { cwd: ffmpegPath })
+                ls = spawn(`cmd`, [`/c`, `ffmpeg`, `-i`, `${videoPath}/merge.mp4`, `-i`, `${audioPath}`, `-c:v`, `copy`, `-c:a`, `aac`, `-b:a`, `256k`, `${videoPath}/result.mp4`, `-y`], { cwd: ffmpegPath })
 
             ls.stdout.on('data', function (data) {
                 console.log('stdout: ' + data)
@@ -362,10 +486,10 @@ exports.ConcatAudio = (videoPath, audioPath) => {
 
             ls.on('exit', async function (code) {
                 console.log('child process exited with code ' + code)
-                
+
                 try {
                     await sleep(1000)
-    
+
                     // 필요없는 파일을 제거해준다.
                     let files = await retry(ReadDirAsync(`${videoPath}`))
                     for (let i = 0; i < files.length; i++) {
@@ -377,7 +501,7 @@ exports.ConcatAudio = (videoPath, audioPath) => {
                             }
                         }
                     }
-    
+
                     // 출력된 mp4 파일이 존재하지 않으면 실패
                     if (!(await retryBoolean(AccessAsync(`${videoPath}/result.mp4`)))) {
                         return reject(`ERR_RESULT_FILE_NOT_EXIST (렌더링 실패)`)
@@ -433,10 +557,10 @@ exports.ScaleWatermark = (watermarkPath, baseWatermarkWidth, baseWatermarkHeight
 
             ls.on('exit', async function (code) {
                 console.log('child process exited with code ' + code)
-                
+
                 try {
                     await sleep(1000)
-    
+
                     // 출력된 png 파일이 존재하지 않으면 실패
                     if (!(await retryBoolean(AccessAsync(`${videoPath}/${outputFileName}`)))) {
                         return reject(`ERR_SCALED_WATERMARK_NOT_FOUND (렌더링 실패)`)
@@ -482,10 +606,10 @@ exports.PutWatermark = (videoPath, inputFilePath, outputFilePath, watermarkFileN
 
             ls.on('exit', async function (code) {
                 console.log('child process exited with code ' + code)
-                
+
                 try {
                     await sleep(1000)
-    
+
                     // 출력된 mp4 파일이 존재하지 않으면 실패
                     if (!(await retryBoolean(AccessAsync(`${videoPath}/${outputFilePath}`)))) {
                         return reject(`ERR_SEALED_MP4_NOT_FOUND (렌더링 실패)`)

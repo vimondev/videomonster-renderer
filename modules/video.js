@@ -350,14 +350,14 @@ exports.AudioFadeInOut = (audioPath, startTime, fadeDuration, videoDuration) => 
         async function FadeInProc(inputAudioPath, outputAudioPath) {
             return new Promise((resolve, reject) => {
                 // 오디오 페이드 인
-                console.log(`Audio Apply FadeIn Start!`)
+                console.log(`Audio Apply FadeIn Start! >> INPUT(${inputAudioPath}) OUTPUT(${outputAudioPath})`)
     
                 // 오디오 파일을 영상에 입혀준다. (AAC 코덱)
                 const spawn = require(`child_process`).spawn,
                     ls = spawn(`cmd`,
                         [
                             `/c`, `ffmpeg`, `-i`, `${inputAudioPath}`,
-                            `-af`, `"afade=t=in:st=${startTime}:d=${fadeDuration}"`, `${outputAudioPath}`
+                            `-af`, `afade=t=in:st=${startTime}:d=${fadeDuration}`, `${outputAudioPath}`
                         ]
                         , { cwd: ffmpegPath })
     
@@ -388,14 +388,14 @@ exports.AudioFadeInOut = (audioPath, startTime, fadeDuration, videoDuration) => 
         async function FadeOutProc(inputAudioPath, outputAudioPath) {
             return new Promise((resolve, reject) => {
                 // 오디오 페이드 아웃
-                console.log(`Audio Apply FadeOut Start!`)
+                console.log(`Audio Apply FadeOut Start! >> INPUT(${inputAudioPath}) OUTPUT(${outputAudioPath})`)
     
                 // 오디오 파일을 영상에 입혀준다. (AAC 코덱)
                 const spawn = require(`child_process`).spawn,
                     ls = spawn(`cmd`,
                         [
                             `/c`, `ffmpeg`, `-i`, `${inputAudioPath}`, 
-                            `-af`, `"afade=t=out:st=${videoDuration - startTime}:d=${fadeDuration}"`, `${outputAudioPath}`
+                            `-af`, `afade=t=out:st=${videoDuration - startTime}:d=${fadeDuration}`, `${outputAudioPath}`
                         ]
                         , { cwd: ffmpegPath })
     

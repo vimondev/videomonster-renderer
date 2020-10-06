@@ -392,18 +392,14 @@ async function func() {
     console.log(data)
 
     try {
-      console.log("[ MERGE_START ] ENTERED")
       // 분산 렌더링된 영상들을 하나로 합친다.
       await video.Merge(rendererCount, videoPath)
 
       // 오디오 덮어씌우기를 한 경우 페이드인 페이드아웃 처리를 먼저 해준다.
       if (audioReplaceInfo) {
-        console.log("[ MERGE_START ] Audio FadeInOut Start >> " + audioReplaceInfo)
         // 영상에 유저 오디오를 입힌다.
         const generatedAudioPath = await video.AudioFadeInOut(audioReplaceInfo.path, audioReplaceInfo.StartTime, audioReplaceInfo.FadeDuration, time)
         
-
-        console.log("[ MERGE_START ] Audio ConcatAudio 1 Start >> " + generatedAudioPath)
         let seconds = Math.floor(audioReplaceInfo.StartTime % 60)
         let minuts = Math.floor(audioReplaceInfo.StartTime / 60)
         seconds = seconds < 10 ? `0` + seconds : seconds
@@ -412,7 +408,6 @@ async function func() {
       }
       else {
         // 영상에 제공된 오디오를 입힌다.
-        console.log("[ MERGE_START ] Audio ConcatAudio 2 Start")
         await video.ConcatAudio(videoPath, audioPath, time)
       }
 

@@ -403,7 +403,6 @@ async function FadeOutProc(inputAudioPath, outputAudioPath, startTime, fadeDurat
         ls.stderr.on('data', function (data) { console.log('stderr: ' + data) })
         ls.on('exit', async function (code) {
             console.log('child process(FadeOutProc) exited with code ' + code)
-
             try {
                 await sleep(1000)
 
@@ -431,11 +430,7 @@ exports.AudioFadeInOut = (audioPath, startTime, fadeDuration, videoDuration) => 
         const fadeInAudioOutputPath = `${localAudioPath}/audio_in.m4a`
         const fadeOutAudioOutputPath = `${localAudioPath}/audio_in_out.m4a`
 
-        console.log("[ Audio Fade In Out ]")
-
         try {
-            console.log(`Audio Apply FadeInOut Ready!`)
-
             // 시작 전에 반드시 localPath 청소
             if (await AccessAsync(`${localAudioPath}`)) {
                 let files = await retry(ReadDirAsync(`${localAudioPath}`))
@@ -448,8 +443,6 @@ exports.AudioFadeInOut = (audioPath, startTime, fadeDuration, videoDuration) => 
             else
                 await retry(MkdirAsync(`${localAudioPath}`))
 
-                console.log(`Audio Apply FadeInOut Ready 2 !`)
-                
             await FadeInProc(audioPath, fadeInAudioOutputPath, startTime, fadeDuration)
             await FadeOutProc(fadeInAudioOutputPath, fadeOutAudioOutputPath, startTime, fadeDuration, videoDuration)
 

@@ -437,29 +437,29 @@ exports.AudioFadeInOut = (audioPath, startTime, fadeDuration, videoDuration) => 
         })
         }    
 
-        const fadeInAudioOutputPath = `${localPath}/audio_in.m4a`
-        const fadeOutAudioOutputPath = `${localPath}/audio_in_out.m4a`
+        const localAudioPath = `${localPath}/music`
+        const fadeInAudioOutputPath = `${localAudioPath}/audio_in.m4a`
+        const fadeOutAudioOutputPath = `${localAudioPath}/audio_in_out.m4a`
 
         console.log("[ Audio Fade In Out ]")
-        console.log("[ Audio Fade In Out ] >> " + fadeInAudioOutputPath)
-        console.log("[ Audio Fade In Out ] >> " + fadeOutAudioOutputPath)
 
         try {
             console.log(`Audio Apply FadeInOut Ready!`)
 
             // 시작 전에 반드시 localPath 청소
-            if (await AccessAsync(`${localPath}`)) {
-                let files = await retry(ReadDirAsync(`${localPath}`))
+            if (await AccessAsync(`${localAudioPath}`)) {
+                let files = await retry(ReadDirAsync(`${localAudioPath}`))
                 for (let i = 0; i < files.length; i++) {
                     // 기존 파일들 모두 삭제
-                    await retry(UnlinkAsync(fadeInAudioOutputPath))
-                    await retry(UnlinkAsync(fadeOutAudioOutputPath))
+                    await retry(UnlinkAsync(`${localAudioPath}/${files[i]}`))
                 }
             }
             // 기존에 생성된 폴더가 없을 경우 생성
             else
-                await retry(MkdirAsync(`${localPath}`))
+                await retry(MkdirAsync(`${localAudioPath}`))
 
+                console.log(`Audio Apply FadeInOut Ready 2 !`)
+                
             await FadeInProc(audioPath, fadeInAudioOutputPath)
             await FadeOutProc(fadeInAudioOutputPath, fadeOutAudioOutputPath)
 

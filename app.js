@@ -386,7 +386,8 @@ async function func() {
       height,
       watermarkPath,
       watermarkPath2,
-      isUseWatermark
+      isUseWatermark,
+      time
     } = data
     console.log(data)
 
@@ -399,15 +400,20 @@ async function func() {
       if (audioReplaceInfo) {
         console.log("[ MERGE_START ] Audio FadeInOut Start >> " + audioReplaceInfo)
         // 영상에 유저 오디오를 입힌다.
-        const generatedAudioPath = await video.AudioFadeInOut(audioReplaceInfo.path, audioReplaceInfo.StartTime, audioReplaceInfo.FadeDuration, audioReplaceInfo.VideoDuration)
+        const generatedAudioPath = await video.AudioFadeInOut(audioReplaceInfo.path, audioReplaceInfo.StartTime, audioReplaceInfo.FadeDuration, time)
         
+
         console.log("[ MERGE_START ] Audio ConcatAudio 1 Start >> " + generatedAudioPath)
-        await video.ConcatAudio(videoPath, generatedAudioPath)
+        let seconds = Math.floor(audioReplaceInfo.StartTime) % 60
+        let minuts = Math.floor(audioReplaceInfo.StartTime) / 60
+        seconds = seconds < 10 ? `0` + seconds : seconds
+        minuts = minuts < 10 ? `0` + minuts : minuts
+        await video.ConcatAudio(videoPath, generatedAudioPath, time, `00:00:00`, `00:${minuts}:${seconds}`)
       }
       else {
         // 영상에 제공된 오디오를 입힌다.
         console.log("[ MERGE_START ] Audio ConcatAudio 2 Start")
-        await video.ConcatAudio(videoPath, audioPath)
+        await video.ConcatAudio(videoPath, audioPath, time)
       }
 
       if (isUseWatermark) {

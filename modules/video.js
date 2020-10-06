@@ -463,14 +463,28 @@ exports.AudioFadeInOut = (audioPath, startTime, fadeDuration, videoDuration) => 
 }
 
 // 오디오 파일을 영상에 입히는 작업
-exports.ConcatAudio = (videoPath, audioPath) => {
+exports.ConcatAudio = (videoPath, audioPath, length, videoStartTime = `00:00:00`, audioStartTime = `00:00:00`) => {
     return new Promise((resolve, reject) => {
         try {
-            console.log(`Concat Audio Start!`)
+            console.log(`Concat Audio Start! Length(${length}) VST(${videoStartTime}) AST(${audioSTartTime})`)
 
             // 오디오 파일을 영상에 입혀준다. (AAC 코덱)
             const spawn = require(`child_process`).spawn,
-                ls = spawn(`cmd`, [`/c`, `ffmpeg`, `-i`, `${videoPath}/merge.mp4`, `-i`, `${audioPath}`, `-c:v`, `copy`, `-c:a`, `aac`, `-b:a`, `256k`, `${videoPath}/result.mp4`, `-y`], { cwd: ffmpegPath })
+                ls = spawn(`cmd`,
+                    [
+                        `/c`, `ffmpeg`,
+                        `-ss`, `${videoStartTime}`,
+                        `-t`, `${length}`,
+                        `-i`, `${videoPath}/merge.mp4`,
+                        `-ss`, `${audioStartTime}`,
+                        `-t`, `${length}`,
+                        `-i`, `${audioPath}`,
+                        `-c:v`, `copy`,
+                        `-c:a`, `aac`,
+                        `-b:a`, `256k`,
+                        `${videoPath}/result.mp4`, `-y`
+                    ]
+                    , { cwd: ffmpegPath })
 
             ls.stdout.on('data', function (data) {
                 console.log('stdout: ' + data)

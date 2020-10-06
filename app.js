@@ -404,8 +404,8 @@ async function func() {
         
 
         console.log("[ MERGE_START ] Audio ConcatAudio 1 Start >> " + generatedAudioPath)
-        let seconds = Math.floor(audioReplaceInfo.StartTime) % 60
-        let minuts = Math.floor(audioReplaceInfo.StartTime) / 60
+        let seconds = Math.floor(audioReplaceInfo.StartTime % 60)
+        let minuts = Math.floor(audioReplaceInfo.StartTime / 60)
         seconds = seconds < 10 ? `0` + seconds : seconds
         minuts = minuts < 10 ? `0` + minuts : minuts
         await video.ConcatAudio(videoPath, generatedAudioPath, time, `00:00:00`, `00:${minuts}:${seconds}`)

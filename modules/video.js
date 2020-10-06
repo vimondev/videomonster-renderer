@@ -408,17 +408,14 @@ exports.AudioFadeInOut = (audioPath, startTime, fadeDuration, videoDuration) => 
                         await sleep(1000)
     
                         // 필요없는 파일을 제거해준다.
-                        let files = await retry(ReadDirAsync(`${localPath}`))
-                        for (let i = 0; i < files.length; i++) {
-                            if (await AccessAsync(inputAudioPath)) {
-                                try {
-                                    await retry(UnlinkAsync(inputAudioPath))
-                                } catch (e) {
-                                    console.log(e)
-                                }
+                        if (await AccessAsync(inputAudioPath)) {
+                            try {
+                                await retry(UnlinkAsync(inputAudioPath))
+                            } catch (e) {
+                                console.log(e)
                             }
                         }
-    
+                        
                         // 출력된 mp4 파일이 존재하지 않으면 실패
                         if (!(await retryBoolean(AccessAsync(outputAudioPath)))) {
                             return reject(`ERR_RESULT_FILE_NOT_EXIST (렌더링 실패)`)

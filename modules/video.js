@@ -387,8 +387,8 @@ async function FadeOutProc(inputAudioPath, outputAudioPath, startTime, fadeDurat
         // 오디오 페이드 아웃
         console.log(`Audio Apply FadeOut Start! >> INPUT(${inputAudioPath}) OUTPUT(${outputAudioPath}) ST(${startTime}) FD(${fadeDuration}) VD(${videoDuration})`)
 
-        let fadeOutStartTime = Number(videoDuration) - Number(startTime)
-        if(isNaN(fadeOutStartTime)) fadeOutStartTime = 10
+        let fadeOutStartTime = Number(startTime) + Number(videoDuration) - Number(fadeDuration)
+        if(isNaN(fadeOutStartTime)) fadeOutStartTime = 0
 
         // 오디오 파일을 영상에 입혀준다. (AAC 코덱)
         const spawn = require(`child_process`).spawn,

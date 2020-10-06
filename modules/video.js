@@ -357,8 +357,7 @@ exports.AudioFadeInOut = (audioPath, startTime, fadeDuration, videoDuration) => 
                     ls = spawn(`cmd`,
                         [
                             `/c`, `ffmpeg`, `-i`, `${inputAudioPath}`,
-                            `-af`, `"afade=t=in:st=${startTime}:d=${fadeDuration}"`,
-                            `-i`, `${outputAudioPath}`
+                            `-af`, `"afade=t=in:st=${startTime}:d=${fadeDuration}"`, `${outputAudioPath}`
                         ]
                         , { cwd: ffmpegPath })
     
@@ -396,8 +395,7 @@ exports.AudioFadeInOut = (audioPath, startTime, fadeDuration, videoDuration) => 
                     ls = spawn(`cmd`,
                         [
                             `/c`, `ffmpeg`, `-i`, `${inputAudioPath}`, 
-                            `-af`, `"afade=t=out:st=${videoDuration - startTime}:d=${fadeDuration}"`, 
-                            `-i`, `${outputAudioPath}`
+                            `-af`, `"afade=t=out:st=${videoDuration - startTime}:d=${fadeDuration}"`, `${outputAudioPath}`
                         ]
                         , { cwd: ffmpegPath })
     

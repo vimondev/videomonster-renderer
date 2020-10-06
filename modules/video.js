@@ -356,16 +356,16 @@ exports.AudioFadeInOut = (audioPath, startTime, fadeDuration, videoDuration) => 
                 const spawn = require(`child_process`).spawn,
                     ls = spawn(`cmd`,
                         [
-                            `/c`, `ffmpeg`, `-i`, inputAudioPath,
+                            `/c`, `ffmpeg`, `-i`, `${inputAudioPath}`,
                             `-af`, `"afade=t=in:st=${startTime}:d=${fadeDuration}"`,
-                            `-i`, outputAudioPath
+                            `-i`, `${outputAudioPath}`
                         ]
                         , { cwd: ffmpegPath })
     
                 ls.stdout.on('data', function (data) { console.log('stdout: ' + data) })
                 ls.stderr.on('data', function (data) { console.log('stderr: ' + data) })
                 ls.on('exit', async function (code) {
-                    console.log('child process exited with code ' + code)
+                    console.log('child process(FadeInProc) exited with code ' + code)
     
                     try {
                         await sleep(1000)
@@ -380,7 +380,7 @@ exports.AudioFadeInOut = (audioPath, startTime, fadeDuration, videoDuration) => 
                     }
                     catch (e) {
                         console.log(e)
-                        reject(`ERR_APPLY_FADE_AUDIO_FAILED (렌더링 실패)`)
+                        reject(`ERR_APPLY_FADE_IN_AUDIO_FAILED (렌더링 실패 )` + e)
                     }
                 })
             })
@@ -395,16 +395,16 @@ exports.AudioFadeInOut = (audioPath, startTime, fadeDuration, videoDuration) => 
                 const spawn = require(`child_process`).spawn,
                     ls = spawn(`cmd`,
                         [
-                            `/c`, `ffmpeg`, `-i`, inputAudioPath, 
+                            `/c`, `ffmpeg`, `-i`, `${inputAudioPath}`, 
                             `-af`, `"afade=t=out:st=${videoDuration - startTime}:d=${fadeDuration}"`, 
-                            `-i`, outputAudioPath
+                            `-i`, `${outputAudioPath}`
                         ]
                         , { cwd: ffmpegPath })
     
                 ls.stdout.on('data', function (data) { console.log('stdout: ' + data) })
                 ls.stderr.on('data', function (data) { console.log('stderr: ' + data) })
                 ls.on('exit', async function (code) {
-                    console.log('child process exited with code ' + code)
+                    console.log('child process(FadeOutProc) exited with code ' + code)
     
                     try {
                         await sleep(1000)
@@ -431,7 +431,7 @@ exports.AudioFadeInOut = (audioPath, startTime, fadeDuration, videoDuration) => 
                     }
                     catch (e) {
                         console.log(e)
-                        reject(`ERR_CONCAT_AUDIO_FAILED (렌더링 실패)`)
+                        reject(`ERR_APPLY_FADE_OUT_AUDIO_FAILED (렌더링 실패 )` + e)
                     }
                 })
         })
@@ -439,6 +439,10 @@ exports.AudioFadeInOut = (audioPath, startTime, fadeDuration, videoDuration) => 
 
         const fadeInAudioOutputPath = `${localPath}/audio_in.m4a`
         const fadeOutAudioOutputPath = `${localPath}/audio_in_out.m4a`
+
+        console.log("[ Audio Fade In Out ]")
+        console.log("[ Audio Fade In Out ] >> " + fadeInAudioOutputPath)
+        console.log("[ Audio Fade In Out ] >> " + fadeOutAudioOutputPath)
 
         try {
             console.log(`Audio Apply FadeInOut Ready!`)
@@ -487,7 +491,7 @@ exports.ConcatAudio = (videoPath, audioPath) => {
             })
 
             ls.on('exit', async function (code) {
-                console.log('child process exited with code ' + code)
+                console.log('child process(ConcatAudio) exited with code ' + code)
 
                 try {
                     await sleep(1000)

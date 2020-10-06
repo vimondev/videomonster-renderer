@@ -344,93 +344,88 @@ exports.Merge = (rendererCount, videoPath) => {
     })
 }
 
+async function FadeInProc(inputAudioPath, outputAudioPath, startTime, fadeDuration) {
+    return new Promise((resolve, reject) => {
+        // 오디오 페이드 인
+        console.log(`Audio Apply FadeIn Start! >> INPUT(${inputAudioPath}) OUTPUT(${outputAudioPath}) ST(${startTime}) FD(${fadeDuration})`)
+
+        // 오디오 파일을 영상에 입혀준다. (AAC 코덱)
+        const spawn = require(`child_process`).spawn,
+            ls = spawn(`cmd`,
+                [
+                    `/c`, `ffmpeg`, `-i`, `${inputAudioPath}`,
+                    `-af`, `afade=t=in:st=${startTime}:d=${fadeDuration}`, `${outputAudioPath}`
+                ]
+                , { cwd: ffmpegPath })
+
+        ls.stdout.on('data', function (data) { console.log('stdout: ' + data) })
+        ls.stderr.on('data', function (data) { console.log('stderr: ' + data) })
+        ls.on('exit', async function (code) {
+            console.log('child process(FadeInProc) exited with code ' + code)
+
+            try {
+                await sleep(1000)
+
+                // 출력된 mp4 파일이 존재하지 않으면 실패
+                if (!(await retryBoolean(AccessAsync(outputAudioPath)))) {
+                    return reject(`ERR_RESULT_FILE_NOT_EXIST (렌더링 실패)`)
+                }
+                else {
+                    return resolve()
+                }
+            }
+            catch (e) {
+                console.log(e)
+                reject(`ERR_APPLY_FADE_IN_AUDIO_FAILED (렌더링 실패 )` + e)
+            }
+        })
+    })
+}
+
+async function FadeOutProc(inputAudioPath, outputAudioPath, startTime, fadeDuration, videoDuration) {
+    return new Promise((resolve, reject) => {
+        // 오디오 페이드 아웃
+        console.log(`Audio Apply FadeOut Start! >> INPUT(${inputAudioPath}) OUTPUT(${outputAudioPath}) ST(${startTime}) FD(${fadeDuration}) VD(${videoDuration})`)
+
+        let fadeOutStartTime = Number(videoDuration) - Number(startTime)
+        if(isNaN(fadeOutStartTime)) fadeOutStartTime = 10
+
+        // 오디오 파일을 영상에 입혀준다. (AAC 코덱)
+        const spawn = require(`child_process`).spawn,
+            ls = spawn(`cmd`,
+                [
+                    `/c`, `ffmpeg`, `-i`, `${inputAudioPath}`,
+                    `-af`, `afade=t=out:st=${fadeOutStartTime}:d=${fadeDuration}`, `${outputAudioPath}`
+                ]
+                , { cwd: ffmpegPath })
+
+        ls.stdout.on('data', function (data) { console.log('stdout: ' + data) })
+        ls.stderr.on('data', function (data) { console.log('stderr: ' + data) })
+        ls.on('exit', async function (code) {
+            console.log('child process(FadeOutProc) exited with code ' + code)
+
+            try {
+                await sleep(1000)
+
+                // 출력된 mp4 파일이 존재하지 않으면 실패
+                if (!(await retryBoolean(AccessAsync(outputAudioPath)))) {
+                    return reject(`ERR_RESULT_FILE_NOT_EXIST (렌더링 실패)`)
+                }
+                else {
+                    return resolve()
+                }
+            }
+            catch (e) {
+                console.log(e)
+                reject(`ERR_APPLY_FADE_OUT_AUDIO_FAILED (렌더링 실패 )` + e)
+            }
+        })
+    })
+}    
+
 // Audio Fade In/Out 효과 적용
 exports.AudioFadeInOut = (audioPath, startTime, fadeDuration, videoDuration) => {
     return new Promise(async (resolve, reject) => {
-        async function FadeInProc(inputAudioPath, outputAudioPath) {
-            return new Promise((resolve, reject) => {
-                // 오디오 페이드 인
-                console.log(`Audio Apply FadeIn Start! >> INPUT(${inputAudioPath}) OUTPUT(${outputAudioPath})`)
-    
-                // 오디오 파일을 영상에 입혀준다. (AAC 코덱)
-                const spawn = require(`child_process`).spawn,
-                    ls = spawn(`cmd`,
-                        [
-                            `/c`, `ffmpeg`, `-i`, `${inputAudioPath}`,
-                            `-af`, `afade=t=in:st=${startTime}:d=${fadeDuration}`, `${outputAudioPath}`
-                        ]
-                        , { cwd: ffmpegPath })
-    
-                ls.stdout.on('data', function (data) { console.log('stdout: ' + data) })
-                ls.stderr.on('data', function (data) { console.log('stderr: ' + data) })
-                ls.on('exit', async function (code) {
-                    console.log('child process(FadeInProc) exited with code ' + code)
-    
-                    try {
-                        await sleep(1000)
-    
-                        // 출력된 mp4 파일이 존재하지 않으면 실패
-                        if (!(await retryBoolean(AccessAsync(outputAudioPath)))) {
-                            return reject(`ERR_RESULT_FILE_NOT_EXIST (렌더링 실패)`)
-                        }
-                        else {
-                            return resolve()
-                        }
-                    }
-                    catch (e) {
-                        console.log(e)
-                        reject(`ERR_APPLY_FADE_IN_AUDIO_FAILED (렌더링 실패 )` + e)
-                    }
-                })
-            })
-        }
-    
-        async function FadeOutProc(inputAudioPath, outputAudioPath) {
-            return new Promise((resolve, reject) => {
-                // 오디오 페이드 아웃
-                console.log(`Audio Apply FadeOut Start! >> INPUT(${inputAudioPath}) OUTPUT(${outputAudioPath})`)
-    
-                // 오디오 파일을 영상에 입혀준다. (AAC 코덱)
-                const spawn = require(`child_process`).spawn,
-                    ls = spawn(`cmd`,
-                        [
-                            `/c`, `ffmpeg`, `-i`, `${inputAudioPath}`, 
-                            `-af`, `afade=t=out:st=${videoDuration - startTime}:d=${fadeDuration}`, `${outputAudioPath}`
-                        ]
-                        , { cwd: ffmpegPath })
-    
-                ls.stdout.on('data', function (data) { console.log('stdout: ' + data) })
-                ls.stderr.on('data', function (data) { console.log('stderr: ' + data) })
-                ls.on('exit', async function (code) {
-                    console.log('child process(FadeOutProc) exited with code ' + code)
-    
-                    try {
-                        await sleep(1000)
-    
-                        // 필요없는 파일을 제거해준다.
-                        if (await AccessAsync(inputAudioPath)) {
-                            try {
-                                await retry(UnlinkAsync(inputAudioPath))
-                            } catch (e) {
-                                console.log(e)
-                            }
-                        }
-                        
-                        // 출력된 mp4 파일이 존재하지 않으면 실패
-                        if (!(await retryBoolean(AccessAsync(outputAudioPath)))) {
-                            return reject(`ERR_RESULT_FILE_NOT_EXIST (렌더링 실패)`)
-                        }
-                        else {
-                            return resolve()
-                        }
-                    }
-                    catch (e) {
-                        console.log(e)
-                        reject(`ERR_APPLY_FADE_OUT_AUDIO_FAILED (렌더링 실패 )` + e)
-                    }
-                })
-        })
-        }    
 
         const localAudioPath = `${localPath}/music`
         const fadeInAudioOutputPath = `${localAudioPath}/audio_in.m4a`
@@ -455,8 +450,8 @@ exports.AudioFadeInOut = (audioPath, startTime, fadeDuration, videoDuration) => 
 
                 console.log(`Audio Apply FadeInOut Ready 2 !`)
                 
-            await FadeInProc(audioPath, fadeInAudioOutputPath)
-            await FadeOutProc(fadeInAudioOutputPath, fadeOutAudioOutputPath)
+            await FadeInProc(audioPath, fadeInAudioOutputPath, startTime, fadeDuration)
+            await FadeOutProc(fadeInAudioOutputPath, fadeOutAudioOutputPath, startTime, fadeDuration, videoDuration)
 
             resolve(fadeOutAudioOutputPath)
         }

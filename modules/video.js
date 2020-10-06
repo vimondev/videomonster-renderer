@@ -466,7 +466,7 @@ exports.AudioFadeInOut = (audioPath, startTime, fadeDuration, videoDuration) => 
 exports.ConcatAudio = (videoPath, audioPath, length, videoStartTime = `00:00:00`, audioStartTime = `00:00:00`) => {
     return new Promise((resolve, reject) => {
         try {
-            console.log(`Concat Audio Start! Length(${length}) VST(${videoStartTime}) AST(${audioSTartTime})`)
+            console.log(`Concat Audio Start! Length(${length}) VST(${videoStartTime}) AST(${audioStartTime})`)
 
             // 오디오 파일을 영상에 입혀준다. (AAC 코덱)
             const spawn = require(`child_process`).spawn,

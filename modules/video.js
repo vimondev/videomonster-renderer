@@ -456,13 +456,10 @@ exports.AudioFadeInOut = (audioPath, startTime, fadeDuration, videoDuration) => 
 }
 
 // 오디오 파일을 영상에 입히는 작업
-exports.ConcatAudio = (videoPath, audioPath, length = 0, videoStartTime = `00:00:00`, audioStartTime = `00:00:00`) => {
+exports.ConcatAudio = (videoPath, audioPath, length, videoStartTime = `00:00:00`, audioStartTime = `00:00:00`) => {
     return new Promise((resolve, reject) => {
         try {
             console.log(`Concat Audio Start! Length(${length}) VST(${videoStartTime}) AST(${audioStartTime})`)
-
-            // 커스텀 오디오가 아닌 경우 length는 undefined이기 때문에 0을 넣어줌
-            if(!length || isNaN(length)) length = 0
 
             // 오디오 파일을 영상에 입혀준다. (AAC 코덱)
             const spawn = require(`child_process`).spawn,

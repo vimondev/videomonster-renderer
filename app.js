@@ -188,7 +188,8 @@ async function func() {
 
       frameRate,
       hashTagString,
-      totalFrameCount
+      totalFrameCount,
+      time
     } = data
 
     let startFrame = 0
@@ -248,7 +249,7 @@ async function func() {
       // Merge를 수행한다. (Template Confirm Rendering은 렌더러를 1개만 사용하므로 Merge는 별로 의미가 없음.)
       await video.Merge(1, videoPath)
       // 비디오 파일에 Audio를 입힌다.
-      await video.ConcatAudio(videoPath, audioPath)
+      await video.ConcatAudio(videoPath, audioPath, time)
 
       socket.emit(`template_confirm_render_completed`, {
         currentGroupIndex,

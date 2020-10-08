@@ -403,9 +403,15 @@ async function func() {
         
         let seconds = Math.floor(audioReplaceInfo.StartTime % 60)
         let minuts = Math.floor(audioReplaceInfo.StartTime / 60)
+        let milliseconds = (audioReplaceInfo.StartTime - Math.floor(audioReplaceInfo.StartTime)).toFixed(3)
         seconds = seconds < 10 ? `0` + seconds : seconds
         minuts = minuts < 10 ? `0` + minuts : minuts
-        await video.ConcatAudio(videoPath, generatedAudioPath, time, `00:00:00`, `00:${minuts}:${seconds}`)
+        milliseconds = milliseconds > 0 ? milliseconds * 1000 : 0
+        if (milliseconds === 0) milliseconds = `000`
+        else if (milliseconds < 10) milliseconds = `00${milliseconds}` 
+        else if (milliseconds < 100) milliseconds = `0${milliseconds}`
+        
+        await video.ConcatAudio(videoPath, generatedAudioPath, time, `00:00:00.000`, `00:${minuts}:${seconds}.${milliseconds}`)
       }
       else {
         // 영상에 제공된 오디오를 입힌다.

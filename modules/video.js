@@ -456,7 +456,7 @@ exports.AudioFadeInOut = (audioPath, startTime, fadeDuration, videoDuration) => 
 }
 
 // 오디오 파일을 영상에 입히는 작업
-exports.ConcatAudio = (videoPath, audioPath, length, videoStartTime = `00:00:00`, audioStartTime = `00:00:00`) => {
+exports.ConcatAudio = (videoPath, audioPath, length, videoStartTime = `00:00:00.000`, audioStartTime = `00:00:00.000`) => {
     return new Promise((resolve, reject) => {
         try {
             console.log(`Concat Audio Start! Length(${length}) VST(${videoStartTime}) AST(${audioStartTime})`)

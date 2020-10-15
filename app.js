@@ -391,13 +391,20 @@ async function func() {
       time
     } = data
     console.log(data)
-
     try {
       // 분산 렌더링된 영상들을 하나로 합친다.
       await video.Merge(rendererCount, videoPath)
 
       // 오디오 덮어씌우기를 한 경우 페이드인 페이드아웃 처리를 먼저 해준다.
       if (audioReplaceInfo) {
+    
+        const str = Buffer.from(data.audioReplaceInfo.path, `utf-8`)
+        console.log("########### CONVERT TO UTF 8 ###############")
+        console.log(str)
+
+        const str2 = JSON.parse(JSON.stringify(data.audioReplaceInfo.path))
+        console.log(str2)
+    
         // 영상에 유저 오디오를 입힌다.
         const generatedAudioPath = await video.AudioFadeInOut(audioReplaceInfo.path, audioReplaceInfo.StartTime, audioReplaceInfo.FadeDuration, time)
         

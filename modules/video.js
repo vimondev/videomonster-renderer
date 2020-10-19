@@ -83,7 +83,7 @@ exports.AudioRender = (aepPath, audioPath, totalFrameCount) => {
         try {
             let isAudioRendering = true
 
-            const CheckProcessStuck = () => {
+            const CheckProcessStuck = async () => {
                 const startTime = Date.now()
                 while (isAudioRendering) {
                     if (Date.now() - startTime >= 1000 * 60 * 3) {

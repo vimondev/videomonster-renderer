@@ -5,7 +5,7 @@ const {
     aerenderPath,
     ffmpegPath
 } = config
-const { retry, retryBoolean } = require('../global')
+const { retry, retryBoolean, TaskKill } = require('../global')
 
 function AccessAsync(path) {
     return new Promise((resolve, reject) => {
@@ -81,6 +81,20 @@ exports.GetTotalRenderedFrameCount = () => {
 exports.AudioRender = (aepPath, audioPath, totalFrameCount) => {
     return new Promise((resolve, reject) => {
         try {
+            let isAudioRendering = true
+
+            const CheckProcessStuck = () => {
+                const startTime = Date.now()
+                while (isAudioRendering) {
+                    if (Date.now() - startTime >= 1000 * 60 * 3) {
+                        TaskKill('aerender.exe')
+                        break
+                    }
+                    await sleep(1000)
+                }
+            }
+            CheckProcessStuck()
+
             console.log(`Audio Render Start!`)
 
             // 오디오 렌더링을 수행한다. (분산 렌더링 없이 처음부터 끝까지)
@@ -97,6 +111,7 @@ exports.AudioRender = (aepPath, audioPath, totalFrameCount) => {
             })
 
             ls.on('exit', async function (code) {
+                isAudioRendering = false
                 console.log('child process exited with code ' + code)
                 try {
                     await sleep(1000)

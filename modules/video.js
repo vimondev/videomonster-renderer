@@ -536,6 +536,8 @@ exports.ConcatAudio = (videoPath, audioPath, length, videoStartTime = `00:00:00.
                         `-c:v`, `copy`,
                         `-c:a`, `aac`,
                         `-b:a`, `256k`,
+                        `-map`, `0:v:0`,
+                        `-map`, `1:a:0`,
                         `${videoPath}/result.mp4`, `-y`
                     ]
                     , { cwd: ffmpegPath })

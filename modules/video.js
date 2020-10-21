@@ -359,6 +359,44 @@ exports.Merge = (rendererCount, videoPath) => {
     })
 }
 
+async function ApplyVolume(inputAudioPath, outputAudioPath, volume) {
+    return new Promise((resolve, reject) => {
+        // 오디오 페이드 인
+        console.log(`Audio Apply Volume Start! >> INPUT(${inputAudioPath}) OUTPUT(${outputAudioPath}) VOLUME(${volume})`)
+
+        // 오디오 파일을 영상에 입혀준다. (AAC 코덱)
+        const spawn = require(`child_process`).spawn,
+            ls = spawn(`cmd`,
+                [
+                    `/c`, `ffmpeg`, `-i`, `${inputAudioPath}`,
+                    `-af`, `volume=${volume}`, `${outputAudioPath}`
+                ]
+                , { cwd: ffmpegPath })
+
+        ls.stdout.on('data', function (data) { console.log('stdout: ' + data) })
+        ls.stderr.on('data', function (data) { console.log('stderr: ' + data) })
+        ls.on('exit', async function (code) {
+            console.log('child process(FadeInProc) exited with code ' + code)
+
+            try {
+                await sleep(1000)
+
+                // 출력된 mp4 파일이 존재하지 않으면 실패
+                if (!(await retryBoolean(AccessAsync(outputAudioPath)))) {
+                    return reject(`ERR_RESULT_FILE_NOT_EXIST (렌더링 실패)`)
+                }
+                else {
+                    return resolve()
+                }
+            }
+            catch (e) {
+                console.log(e)
+                reject(`ERR_APPLY_FADE_IN_AUDIO_FAILED (렌더링 실패 )` + e)
+            }
+        })
+    })
+}
+
 async function FadeInProc(inputAudioPath, outputAudioPath, startTime, fadeDuration) {
     return new Promise((resolve, reject) => {
         // 오디오 페이드 인
@@ -438,10 +476,11 @@ async function FadeOutProc(inputAudioPath, outputAudioPath, startTime, fadeDurat
 }    
 
 // Audio Fade In/Out 효과 적용
-exports.AudioFadeInOut = (audioPath, startTime, fadeDuration, videoDuration) => {
+exports.AudioFadeInOut = (audioPath, startTime, fadeDuration, videoDuration, volume) => {
     return new Promise(async (resolve, reject) => {
 
         const localAudioPath = `${localPath}/music`
+        const volumeAppliedOutputPath = `${localAudioPath}/volume_applied.m4a`
         const fadeInAudioOutputPath = `${localAudioPath}/audio_in.m4a`
         const fadeOutAudioOutputPath = `${localAudioPath}/audio_in_out.m4a`
 
@@ -458,7 +497,14 @@ exports.AudioFadeInOut = (audioPath, startTime, fadeDuration, videoDuration) => 
             else
                 await retry(MkdirAsync(`${localAudioPath}`))
 
-            await FadeInProc(audioPath, fadeInAudioOutputPath, startTime, fadeDuration)
+            let currentAudioFilePath
+            if (!isNaN(Number(volume)) && Number(volume) !== 1) {
+                await ApplyVolume(audioPath, volumeAppliedOutputPath, volume)
+                currentAudioFilePath = volumeAppliedOutputPath
+            }
+            else currentAudioFilePath = audioPath
+
+            await FadeInProc(currentAudioFilePath, fadeInAudioOutputPath, startTime, fadeDuration)
             await FadeOutProc(fadeInAudioOutputPath, fadeOutAudioOutputPath, startTime, fadeDuration, videoDuration)
 
             resolve(fadeOutAudioOutputPath)

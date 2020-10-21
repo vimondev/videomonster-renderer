@@ -398,7 +398,7 @@ async function func() {
       // 오디오 덮어씌우기를 한 경우 페이드인 페이드아웃 처리를 먼저 해준다.
       if (audioReplaceInfo) {
         // 영상에 유저 오디오를 입힌다.
-        const generatedAudioPath = await video.AudioFadeInOut(audioReplaceInfo.path, audioReplaceInfo.StartTime, audioReplaceInfo.FadeDuration, time)
+        const generatedAudioPath = await video.AudioFadeInOut(audioReplaceInfo.path, audioReplaceInfo.StartTime, audioReplaceInfo.FadeDuration, time, audioReplaceInfo.Volume)
         
         let seconds = Math.floor(audioReplaceInfo.StartTime % 60)
         let minuts = Math.floor(audioReplaceInfo.StartTime / 60)

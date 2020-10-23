@@ -605,6 +605,10 @@ exports.CombineAudio = (videoPath, audioPath) => {
                         `-i`, `${videoPath}/combine.mp4`,
                         `-i`, `${audioPath}`,
                         `-c:v`, `copy`,
+                        `-filter_complex`, `amix`,
+                        `-map`, `0:v`,
+                        `-map`, `0:a`,
+                        `-map`, `1:a`,
                         `${videoPath}/result.mp4`, `-y`
                     ]
                     , { cwd: ffmpegPath })

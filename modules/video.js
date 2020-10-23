@@ -591,6 +591,74 @@ exports.ConcatAudio = (videoPath, audioPath, length, videoStartTime = `00:00:00.
     })
 }
 
+// 다른 오디오 파일을 영상에 추가로 입히는 작업
+exports.CombineAudio = (videoPath, audioPath) => {
+    return new Promise((resolve, reject) => {
+        try {
+            console.log(`Combine Audio Start!`)
+
+            // 오디오 파일을 영상에 입혀준다. (AAC 코덱)
+            const spawn = require(`child_process`).spawn,
+                ls = spawn(`cmd`,
+                    [
+                        `/c`, `ffmpeg`,
+                        `-i`, `${videoPath}/combine.mp4`,
+                        `-i`, `${audioPath}`,
+                        `-acodec`, `copy`,
+                        `-vcodec`, `copy`,
+                        `${videoPath}/result.mp4`, `-y`
+                    ]
+                    , { cwd: ffmpegPath })
+
+
+            ls.stdout.on('data', function (data) {
+                console.log('stdout: ' + data)
+            })
+
+            ls.stderr.on('data', function (data) {
+                console.log('stderr: ' + data)
+            })
+
+            ls.on('exit', async function (code) {
+                console.log('child process(ConcatAudio) exited with code ' + code)
+
+                try {
+                    await sleep(1000)
+
+                    // 필요없는 파일을 제거해준다.
+                    let files = await retry(ReadDirAsync(`${videoPath}`))
+                    for (let i = 0; i < files.length; i++) {
+                        files[i] = files[i].toLowerCase()
+                        if (files[i] == `combine.mp4` && await AccessAsync(`${videoPath}/${files[i]}`)) {
+                            try {
+                                await retry(UnlinkAsync(`${videoPath}/${files[i]}`))
+                            } catch (e) {
+                                console.log(e)
+                            }
+                        }
+                    }
+
+                    // 출력된 mp4 파일이 존재하지 않으면 실패
+                    if (!(await retryBoolean(AccessAsync(`${videoPath}/result.mp4`)))) {
+                        return reject(`ERR_RESULT_FILE_NOT_EXIST (렌더링 실패)`)
+                    }
+                    else {
+                        return resolve()
+                    }
+                }
+                catch (e) {
+                    console.log(e)
+                    reject(`ERR_COMBINE_AUDIO_FAILED (렌더링 실패)`)
+                }
+            })
+        }
+        catch (e) {
+            console.log(e)
+            reject(`ERR_COMBINE_AUDIO_FAILED (렌더링 실패)`)
+        }
+    })
+}
+
 // 오디오 파일을 영상에 입히는 작업
 exports.ScaleWatermark = (watermarkPath, baseWatermarkWidth, baseWatermarkHeight, videoPath, videoWidth, videoHeight, outputFileName) => {
     return new Promise((resolve, reject) => {

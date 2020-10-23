@@ -39,6 +39,15 @@ async function func() {
     })
   }
 
+  function RenameAsync(oldPath, newPath) {
+    return new Promise((resolve, reject) => {
+      fs.rename(oldPath, newPath, err => {
+        if (err) reject(err)
+        else resolve()
+      })
+    })
+  }
+
   function WriteFileAsync(path, data) {
     return new Promise((resolve, reject) => {
       fs.writeFile(path, data, err => {
@@ -380,6 +389,7 @@ async function func() {
     const {
       currentGroupIndex,
       rendererCount,
+      aepPath,
       videoPath,
       audioPath,
       audioReplaceInfo,
@@ -388,12 +398,16 @@ async function func() {
       watermarkPath,
       watermarkPath2,
       isUseWatermark,
-      time
+      time,
+      totalFrameCount,
+      isFootageAudioEnabled
     } = data
     console.log(data)
     try {
       // 분산 렌더링된 영상들을 하나로 합친다.
       await video.Merge(rendererCount, videoPath)
+
+      let videoStartTime, audioStartTime, concatAudioPath = audioPath
 
       // 오디오 덮어씌우기를 한 경우 페이드인 페이드아웃 처리를 먼저 해준다.
       if (audioReplaceInfo) {
@@ -410,11 +424,19 @@ async function func() {
         else if (milliseconds < 10) milliseconds = `00${milliseconds}` 
         else if (milliseconds < 100) milliseconds = `0${milliseconds}`
         
-        await video.ConcatAudio(videoPath, generatedAudioPath, time, `00:00:00.000`, `00:${minuts}:${seconds}.${milliseconds}`)
+        videoStartTime = `00:00:00.000`
+        audioStartTime = `00:${minuts}:${seconds}.${milliseconds}`
+        concatAudioPath = generatedAudioPath
       }
-      else {
-        // 영상에 제공된 오디오를 입힌다.
-        await video.ConcatAudio(videoPath, audioPath, time)
+
+      await video.ConcatAudio(videoPath, concatAudioPath, time, videoStartTime, audioStartTime)
+
+      if (isFootageAudioEnabled) {
+        const combineVideoPath = `${videoPath}/combine.mp4`, combineAudioPath = `${videoPath}/combine.aif`
+        await RenameAsync(`${videoPath}/result.mp4`, combineVideoPath)
+
+        await video.AudioRender(aepPath, combineAudioPath, totalFrameCount)
+        await video.CombineAudio(combineVideoPath, combineAudioPath)
       }
 
       if (isUseWatermark) {

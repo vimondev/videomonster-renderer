@@ -436,7 +436,7 @@ async function func() {
         await RenameAsync(`${videoPath}/result.mp4`, combineVideoPath)
 
         await video.AudioRender(aepPath, combineAudioPath, totalFrameCount)
-        await video.CombineAudio(combineVideoPath, combineAudioPath)
+        await video.CombineAudio(videoPath, combineAudioPath)
       }
 
       if (isUseWatermark) {

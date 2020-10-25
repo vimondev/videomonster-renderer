@@ -53,6 +53,8 @@ function TaskKill(task) {
 
 }
 
+exports.TaskKill = TaskKill
+
 exports.LaunchAfterFX = () => {
     return new Promise((resolve, reject) => {
         const spawn = require(`child_process`).spawn,

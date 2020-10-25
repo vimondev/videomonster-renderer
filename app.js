@@ -39,6 +39,15 @@ async function func() {
     })
   }
 
+  function RenameAsync(oldPath, newPath) {
+    return new Promise((resolve, reject) => {
+      fs.rename(oldPath, newPath, err => {
+        if (err) reject(err)
+        else resolve()
+      })
+    })
+  }
+
   function WriteFileAsync(path, data) {
     return new Promise((resolve, reject) => {
       fs.writeFile(path, data, err => {
@@ -50,10 +59,10 @@ async function func() {
 
   function MkdirAsync(path) {
     return new Promise((resolve, reject) => {
-        fs.mkdir(path, err => {
-            if(err) reject(err)
-            else resolve()
-        })
+      fs.mkdir(path, err => {
+        if (err) reject(err)
+        else resolve()
+      })
     })
   }
 
@@ -188,7 +197,8 @@ async function func() {
 
       frameRate,
       hashTagString,
-      totalFrameCount
+      totalFrameCount,
+      time
     } = data
 
     let startFrame = 0
@@ -248,7 +258,7 @@ async function func() {
       // Merge를 수행한다. (Template Confirm Rendering은 렌더러를 1개만 사용하므로 Merge는 별로 의미가 없음.)
       await video.Merge(1, videoPath)
       // 비디오 파일에 Audio를 입힌다.
-      await video.ConcatAudio(videoPath, audioPath)
+      await video.ConcatAudio(videoPath, audioPath, time)
 
       socket.emit(`template_confirm_render_completed`, {
         currentGroupIndex,
@@ -284,7 +294,7 @@ async function func() {
       endFrame,
       frameRate,
       hashTagString,
-      
+
       installFontMap
     } = data
 
@@ -292,7 +302,7 @@ async function func() {
 
     try {
       await global.ClearTask()
-      
+
       // AEP 파일이 존재하는지 검사한다. (10초 내로 찾지 못하면 에러 코드를 전송한다.)
       for (let i = 0; i < 10; i++) {
         console.log(`Check aep path...`)
@@ -306,13 +316,13 @@ async function func() {
       renderStatus = ERenderStatus.VIDEO
       renderStartedTime = Date.now()
       ReportProgress(currentGroupIndex, rendererIndex)
-      
+
       // 폰트 설치
       if (await fsAsync.IsExistAsync(config.fontPath)) {
         await fsAsync.UnlinkFolderRecursive(config.fontPath)
       }
       await createFolder(config.fontPath)
-      
+
       await global.InstallFont(fontPath)
       if (typeof installFontMap === 'object') await global.InstallGlobalFont(installFontMap)
 
@@ -347,8 +357,8 @@ async function func() {
       if (renderStartedTime != null) {
         // 템플릿 컨펌 렌더링 2시간동안 멈출경우 프로세스 중지
         if (isTemplateConfirmRendering && Date.now() - renderStartedTime > 2 * 60 * 60 * 1000) {
-            console.error('TEMPLATE_CONFIRM_RENDER_STOPPED')
-            process.exit(1)
+          console.error('TEMPLATE_CONFIRM_RENDER_STOPPED')
+          process.exit(1)
         }
         // 비디오 렌더링 1시간동안 멈출경우 프로세스 중지
         else if (isVideoRendering && Date.now() - renderStartedTime > 1 * 60 * 60 * 1000) {
@@ -379,23 +389,58 @@ async function func() {
     const {
       currentGroupIndex,
       rendererCount,
+      aepPath,
       videoPath,
       audioPath,
-
+      audioReplaceInfo,
       width,
       height,
       watermarkPath,
       watermarkPath2,
-      isUseWatermark
+      isUseWatermark,
+      time,
+      totalFrameCount,
+      isFootageAudioEnabled
     } = data
     console.log(data)
-
     try {
       // 분산 렌더링된 영상들을 하나로 합친다.
       await video.Merge(rendererCount, videoPath)
 
-      // 영상에 오디오를 입힌다.
-      await video.ConcatAudio(videoPath, audioPath)
+      let videoStartTime, audioStartTime, concatAudioPath = audioPath
+
+      // 오디오 덮어씌우기를 한 경우 페이드인 페이드아웃 처리를 먼저 해준다.
+      if (audioReplaceInfo) {
+        const encodedAudioPath = `${videoPath}/encodedAudio.m4a`
+        await video.AudioEncoding(audioReplaceInfo.path, encodedAudioPath)
+
+        // 영상에 유저 오디오를 입힌다.
+        const generatedAudioPath = await video.AudioFadeInOut(encodedAudioPath, audioReplaceInfo.StartTime, audioReplaceInfo.FadeDuration, time, audioReplaceInfo.Volume)
+        
+        let seconds = Math.floor(audioReplaceInfo.StartTime % 60)
+        let minuts = Math.floor(audioReplaceInfo.StartTime / 60)
+        let milliseconds = (audioReplaceInfo.StartTime - Math.floor(audioReplaceInfo.StartTime)).toFixed(3)
+        seconds = seconds < 10 ? `0` + seconds : seconds
+        minuts = minuts < 10 ? `0` + minuts : minuts
+        milliseconds = milliseconds > 0 ? milliseconds * 1000 : 0
+        if (milliseconds === 0) milliseconds = `000`
+        else if (milliseconds < 10) milliseconds = `00${milliseconds}` 
+        else if (milliseconds < 100) milliseconds = `0${milliseconds}`
+        
+        videoStartTime = `00:00:00.000`
+        audioStartTime = `00:${minuts}:${seconds}.${milliseconds}`
+        concatAudioPath = generatedAudioPath
+      }
+
+      await video.ConcatAudio(videoPath, concatAudioPath, time, videoStartTime, audioStartTime)
+
+      if (isFootageAudioEnabled) {
+        const combineVideoPath = `${videoPath}/combine.mp4`, combineAudioPath = `${videoPath}/combine.aif`
+        await RenameAsync(`${videoPath}/result.mp4`, combineVideoPath)
+
+        await video.AudioRender(aepPath, combineAudioPath, totalFrameCount)
+        await video.CombineAudio(videoPath, combineAudioPath)
+      }
 
       if (isUseWatermark) {
         const scaledWatermarkFileName = 'scaledwatermark.png'
@@ -404,15 +449,15 @@ async function func() {
         if (watermarkPath) {
           let sealedFileName = 'sealed.mp4'
           if (watermarkPath2) sealedFileName = 'temp.mp4'
-  
+
           const { scaleFactor, scaledWatermarkHeight } = await video.ScaleWatermark(watermarkPath, 275, 115, videoPath, width, height, scaledWatermarkFileName)
-  
+
           const scaledGapX = Math.floor(70 * scaleFactor)
           const scaledGapY = Math.floor(60 * scaleFactor)
-  
+
           const watermarkPositionX = scaledGapX
           const watermarkPositionY = height - scaledWatermarkHeight - scaledGapY
-  
+
           await video.PutWatermark(videoPath, 'result.mp4', sealedFileName, scaledWatermarkFileName, watermarkPositionX, watermarkPositionY)
         }
         // 우측 상단 워터마크
@@ -423,13 +468,13 @@ async function func() {
           }
 
           const { scaleFactor, scaledWatermarkWidth } = await video.ScaleWatermark(watermarkPath2, 244, 60, videoPath, width, height, scaledWatermarkFileName)
-  
+
           const scaledGapX = Math.floor(40 * scaleFactor)
           const scaledGapY = Math.floor(40 * scaleFactor)
-  
+
           const watermarkPositionX = width - scaledWatermarkWidth - scaledGapX
           const watermarkPositionY = scaledGapY
-  
+
           await video.PutWatermark(videoPath, originalFileName, 'sealed.mp4', scaledWatermarkFileName, watermarkPositionX, watermarkPositionY)
         }
       }

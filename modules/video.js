@@ -359,6 +359,60 @@ exports.Merge = (rendererCount, videoPath) => {
     })
 }
 
+// 오디오 파일을 AAC 포맷으로 인코딩하는 작업
+exports.AudioEncoding = (oldAudioPath, newAudioPath) => {
+    return new Promise((resolve, reject) => {
+        try {
+            console.log(`Audio Encoding Start!`)
+
+            // 오디오 파일을 영상에 입혀준다. (AAC 코덱)
+            const spawn = require(`child_process`).spawn,
+                ls = spawn(`cmd`,
+                    [
+                        `/c`, `ffmpeg`,
+                        `-i`, `${oldAudioPath}`,
+                        `-c:a`, `libfdk_aac`,
+                        `-b:a`, `256k`,
+                        `${newAudioPath}`, `-y`
+                    ]
+                    , { cwd: ffmpegPath })
+
+
+            ls.stdout.on('data', function (data) {
+                console.log('stdout: ' + data)
+            })
+
+            ls.stderr.on('data', function (data) {
+                console.log('stderr: ' + data)
+            })
+
+            ls.on('exit', async function (code) {
+                console.log('child process(AudioEncoding) exited with code ' + code)
+
+                try {
+                    await sleep(1000)
+
+                    // 출력된 파일이 존재하지 않으면 실패
+                    if (!(await retryBoolean(AccessAsync(newAudioPath)))) {
+                        return reject(`ERR_AUDIO_ENCODING_FAILED (렌더링 실패)`)
+                    }
+                    else {
+                        return resolve()
+                    }
+                }
+                catch (e) {
+                    console.log(e)
+                    reject(`ERR_AUDIO_ENCODING_FAILED (렌더링 실패)`)
+                }
+            })
+        }
+        catch (e) {
+            console.log(e)
+            reject(`ERR_AUDIO_ENCODING_FAILED (렌더링 실패)`)
+        }
+    })
+}
+
 async function ApplyVolume(inputAudioPath, outputAudioPath, volume) {
     return new Promise((resolve, reject) => {
         // 오디오 페이드 인

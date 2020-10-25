@@ -371,7 +371,7 @@ exports.AudioEncoding = (oldAudioPath, newAudioPath) => {
                     [
                         `/c`, `ffmpeg`,
                         `-i`, `${oldAudioPath}`,
-                        `-c:a`, `libfdk_aac`,
+                        `-c:a`, `aac`,
                         `-b:a`, `256k`,
                         `${newAudioPath}`, `-y`
                     ]

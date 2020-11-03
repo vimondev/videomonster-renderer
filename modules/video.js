@@ -240,7 +240,7 @@ exports.MakeMP4 = (rendererIndex, videoPath, hashTagString, frameRate) => {
             //     ls = spawn(`cmd`, [`/c`, `ffmpeg`, `-framerate`, `${frameRate}`, `-i`, `${localPath}/${rendererIndex}/frames%${digit}d.tif`, `-c:v`, `libx264`, `-pix_fmt`, `yuv420p`, `-r`, `${frameRate}`, `${videoPath}/out${rendererIndex}.mp4`, `-y`], { cwd: ffmpegPath })
             
             const spawn = require(`child_process`).spawn,
-                ls = spawn(`cmd`, [`/c`, `ffmpeg`, `-framerate`, `${frameRate}`, `-i`, `${localPath}/${rendererIndex}/out.avi`, `-c:v`, `libx264`, `-pix_fmt`, `yuv420p`, `-r`, `${frameRate}`, `${videoPath}/out${rendererIndex}.mp4`, `-y`], { cwd: ffmpegPath })
+                ls = spawn(`cmd`, [`/c`, `ffmpeg`, `-i`, `${localPath}/${rendererIndex}/out.avi`, `-c:v`, `libx264`, `-pix_fmt`, `yuv420p`, `-r`, `${frameRate}`, `${videoPath}/out${rendererIndex}.mp4`, `-y`], { cwd: ffmpegPath })
 
             // 프로세스 수행 중 print 이벤트 발생 시 콜백
             ls.stdout.on('data', function (data) {

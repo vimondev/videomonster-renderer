@@ -831,3 +831,57 @@ exports.PutWatermark = (videoPath, inputFilePath, outputFilePath, watermarkFileN
         }
     })
 }
+
+// resize
+exports.ResizeMP4 = (videoPath, width, height, scaleFactor) => {
+    return new Promise((resolve, reject) => {
+        try {
+            console.log(`ResizeMP4 Start!`)
+
+            const index = videoPath.indexOf('.mp4')
+            const resizedVideoPath = `${videoPath.slice(0, index)}_small.mp4`
+
+            width = Math.floor(width * scaleFactor)
+            height = Math.floor(height * scaleFactor)
+
+            if (width % 2 === 1) width -= 1
+            if (height % 2 === 1) height -= 1
+            
+            const spawn = require(`child_process`).spawn,
+                ls = spawn(`cmd`, [`/c`, `ffmpeg`, `-i`, `${videoPath}`, `-vf`, `scale=${width}:${height}`, `${resizedVideoPath}`, `-y`], { cwd: ffmpegPath })
+
+            // 프로세스 수행 중 print 이벤트 발생 시 콜백
+            ls.stdout.on('data', function (data) {
+                console.log('stdout: ' + data)
+            })
+
+            ls.stderr.on('data', function (data) {
+                console.log('stderr: ' + data)
+            })
+
+            ls.on('exit', async function (code) {
+                console.log('child process exited with code ' + code)
+
+                try {
+                    await sleep(1000)
+
+                    // 출력된 mp4 파일이 존재하지 않으면 실패
+                    if (!(await retryBoolean(AccessAsync(resizedVideoPath)))) {
+                        return reject(`ERR_RESIZED_MP4_NOT_EXIST`)
+                    }
+                    else {
+                        return resolve()
+                    }
+                }
+                catch (e) {
+                    console.log(e)
+                    reject(`ERR_RESIZE_MP4_FAILED`)
+                }
+            })
+        }
+        catch (e) {
+            console.log(e)
+            reject(`ERR_RESIZE_MP4_FAILED`)
+        }
+    })
+}

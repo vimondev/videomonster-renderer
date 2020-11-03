@@ -848,7 +848,7 @@ exports.ResizeMP4 = (videoPath, width, height, scaleFactor) => {
             if (height % 2 === 1) height -= 1
             
             const spawn = require(`child_process`).spawn,
-                ls = spawn(`cmd`, [`/c`, `ffmpeg`, `-i`, `${videoPath}`, `-vf`, `scale=${width}:${height}`, `${resizedVideoPath}`, `-y`], { cwd: ffmpegPath })
+                ls = spawn(`cmd`, [`/c`, `ffmpeg`, `-i`, `${videoPath}`, `-vf`, `scale=${width}:${height}`, `-crf`, `30`, `${resizedVideoPath}`, `-y`], { cwd: ffmpegPath })
 
             // 프로세스 수행 중 print 이벤트 발생 시 콜백
             ls.stdout.on('data', function (data) {

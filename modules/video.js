@@ -160,8 +160,12 @@ exports.VideoRender = (rendererIndex, aepPath, startFrame, endFrame, hashTagStri
             }
 
             // startFrame ~ endFrame까지 부분 렌더링 (TIFF로 뽑아낸다.)
+            // const spawn = require(`child_process`).spawn,
+            //     ls = spawn(`cmd`, [`/c`, `aerender`, `-project`, `"${aepPath}"`, `-comp`, `"#Target"`, `-s`, `${startFrame}`, `-e`, `${endFrame}`, `-RStemplate`, `"Best Settings"`, `-OMtemplate`, `"TIFF Sequence with Alpha"`, `-output`, `"${localPath}/${rendererIndex}/frames[${hashTagString}].tif"`, `-continueOnMissingFootage`], { cwd: aerenderPath })
+
+            // startFrame ~ endFrame까지 부분 렌더링 (AVI로 뽑아낸다.)
             const spawn = require(`child_process`).spawn,
-                ls = spawn(`cmd`, [`/c`, `aerender`, `-project`, `"${aepPath}"`, `-comp`, `"#Target"`, `-s`, `${startFrame}`, `-e`, `${endFrame}`, `-RStemplate`, `"Best Settings"`, `-OMtemplate`, `"TIFF Sequence with Alpha"`, `-output`, `"${localPath}/${rendererIndex}/frames[${hashTagString}].tif"`, `-continueOnMissingFootage`], { cwd: aerenderPath })
+                ls = spawn(`cmd`, [`/c`, `aerender`, `-project`, `"${aepPath}"`, `-comp`, `"#Target"`, `-s`, `${startFrame}`, `-e`, `${endFrame}`, `-RStemplate`, `"Best Settings"`, `-OMtemplate`, `"Lossless"`, `-output`, `"${localPath}/${rendererIndex}/out.avi"`, `-continueOnMissingFootage`], { cwd: aerenderPath })
 
             // 프로세스 수행 중 print 이벤트 발생 시 콜백
             ls.stdout.on('data', function (data) {
@@ -195,21 +199,21 @@ exports.VideoRender = (rendererIndex, aepPath, startFrame, endFrame, hashTagStri
                     totalRenderedFrameCount = Number(endFrame) - Number(startFrame) + 1
 
                     await sleep(1000)
-                    let files = (await retry(ReadDirAsync(`${localPath}/${rendererIndex}`))).sort()
+                    // let files = (await retry(ReadDirAsync(`${localPath}/${rendererIndex}`))).sort()
 
-                    // 각 TIFF 파일을 Rename해준다. (ffmpeg 돌리려면 프레임 숫자가 0부터 시작해야함.)
-                    for (let i=0; i<files.length; i++) {
-                        let digit = ``
-                        while (digit.length < hashTagString.length - String(i).length) digit += `0`
-                        digit += i
+                    // // 각 TIFF 파일을 Rename해준다. (ffmpeg 돌리려면 프레임 숫자가 0부터 시작해야함.)
+                    // for (let i=0; i<files.length; i++) {
+                    //     let digit = ``
+                    //     while (digit.length < hashTagString.length - String(i).length) digit += `0`
+                    //     digit += i
 
-                        let filename = `frames${digit}.tif`
-                        await retry(RenameAsync(`${localPath}/${rendererIndex}/${files[i]}`, `${localPath}/${rendererIndex}/${filename}`))
-                    }
+                    //     let filename = `frames${digit}.tif`
+                    //     await retry(RenameAsync(`${localPath}/${rendererIndex}/${files[i]}`, `${localPath}/${rendererIndex}/${filename}`))
+                    // }
                 }
                 catch (e) {
                     console.log(e)
-                    return reject(`ERR_RENAME_FILE_FAILED (${rendererIndex}번 비디오 렌더러 렌더링 실패)`)
+                    // return reject(`ERR_RENAME_FILE_FAILED (${rendererIndex}번 비디오 렌더러 렌더링 실패)`)
                 }
                 return resolve(frameDuration)
             })
@@ -227,13 +231,16 @@ exports.MakeMP4 = (rendererIndex, videoPath, hashTagString, frameRate) => {
         try {
             console.log(`MakeMP4 Start!`)
 
-            let digit = ``
-            while(digit.length < 3 - String(hashTagString.length).length) digit += `0`
-            digit += hashTagString.length
+            // let digit = ``
+            // while(digit.length < 3 - String(hashTagString.length).length) digit += `0`
+            // digit += hashTagString.length
 
             // h264 인코딩을 수행한다.
+            // const spawn = require(`child_process`).spawn,
+            //     ls = spawn(`cmd`, [`/c`, `ffmpeg`, `-framerate`, `${frameRate}`, `-i`, `${localPath}/${rendererIndex}/frames%${digit}d.tif`, `-c:v`, `libx264`, `-pix_fmt`, `yuv420p`, `-r`, `${frameRate}`, `${videoPath}/out${rendererIndex}.mp4`, `-y`], { cwd: ffmpegPath })
+            
             const spawn = require(`child_process`).spawn,
-                ls = spawn(`cmd`, [`/c`, `ffmpeg`, `-framerate`, `${frameRate}`, `-i`, `${localPath}/${rendererIndex}/frames%${digit}d.tif`, `-c:v`, `libx264`, `-pix_fmt`, `yuv420p`, `-r`, `${frameRate}`, `${videoPath}/out${rendererIndex}.mp4`, `-y`], { cwd: ffmpegPath })
+                ls = spawn(`cmd`, [`/c`, `ffmpeg`, `-i`, `${localPath}/${rendererIndex}/out.avi`, `-c:v`, `libx264`, `-pix_fmt`, `yuv420p`, `-r`, `${frameRate}`, `${videoPath}/out${rendererIndex}.mp4`, `-y`], { cwd: ffmpegPath })
 
             // 프로세스 수행 중 print 이벤트 발생 시 콜백
             ls.stdout.on('data', function (data) {
@@ -259,7 +266,7 @@ exports.MakeMP4 = (rendererIndex, videoPath, hashTagString, frameRate) => {
                 try {
                     await sleep(1000)
 
-                    // 렌더링이 완료된 후 TIFF 파일 제거
+                    // 렌더링이 완료된 후 TIFF or AVI 파일 제거
                     let files = await retry(ReadDirAsync(`${localPath}/${rendererIndex}`))
                     for (let i = 0; i < files.length; i++) {
                         files[i] = files[i].toLowerCase()
@@ -821,6 +828,60 @@ exports.PutWatermark = (videoPath, inputFilePath, outputFilePath, watermarkFileN
         catch (e) {
             console.log(e)
             reject(`ERR_SEAL_WATERMARK_FAILED (렌더링 실패)`)
+        }
+    })
+}
+
+// resize
+exports.ResizeMP4 = (videoPath, width, height, scaleFactor) => {
+    return new Promise((resolve, reject) => {
+        try {
+            console.log(`ResizeMP4 Start!`)
+
+            const index = videoPath.indexOf('.mp4')
+            const resizedVideoPath = `${videoPath.slice(0, index)}_small.mp4`
+
+            width = Math.floor(width * scaleFactor)
+            height = Math.floor(height * scaleFactor)
+
+            if (width % 2 === 1) width -= 1
+            if (height % 2 === 1) height -= 1
+            
+            const spawn = require(`child_process`).spawn,
+                ls = spawn(`cmd`, [`/c`, `ffmpeg`, `-i`, `${videoPath}`, `-vf`, `scale=${width}:${height}`, `-crf`, `30`, `${resizedVideoPath}`, `-y`], { cwd: ffmpegPath })
+
+            // 프로세스 수행 중 print 이벤트 발생 시 콜백
+            ls.stdout.on('data', function (data) {
+                console.log('stdout: ' + data)
+            })
+
+            ls.stderr.on('data', function (data) {
+                console.log('stderr: ' + data)
+            })
+
+            ls.on('exit', async function (code) {
+                console.log('child process exited with code ' + code)
+
+                try {
+                    await sleep(1000)
+
+                    // 출력된 mp4 파일이 존재하지 않으면 실패
+                    if (!(await retryBoolean(AccessAsync(resizedVideoPath)))) {
+                        return reject(`ERR_RESIZED_MP4_NOT_EXIST`)
+                    }
+                    else {
+                        return resolve()
+                    }
+                }
+                catch (e) {
+                    console.log(e)
+                    reject(`ERR_RESIZE_MP4_FAILED`)
+                }
+            })
+        }
+        catch (e) {
+            console.log(e)
+            reject(`ERR_RESIZE_MP4_FAILED`)
         }
     })
 }

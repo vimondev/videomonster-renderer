@@ -263,7 +263,7 @@ async function func() {
       // 비디오 파일에 Audio를 입힌다.
       await video.ConcatAudio(videoPath, audioPath, time)
 
-      await video.ResizeMP4(`${videoPath}/result.mp4`, width, height, 0.5)
+      await video.ResizeMP4(`${videoPath}/result.mp4`, width, height, 1 / 6)
 
       socket.emit(`template_confirm_render_completed`, {
         currentGroupIndex,
@@ -447,7 +447,7 @@ async function func() {
         await video.CombineAudio(videoPath, combineAudioPath)
       }
 
-      await video.ResizeMP4(`${videoPath}/result.mp4`, width, height, 0.5)
+      await video.ResizeMP4(`${videoPath}/result.mp4`, width, height, 1 / 6)
 
       if (isUseWatermark) {
         const scaledWatermarkFileName = 'scaledwatermark.png'
@@ -485,7 +485,7 @@ async function func() {
           await video.PutWatermark(videoPath, originalFileName, 'sealed.mp4', scaledWatermarkFileName, watermarkPositionX, watermarkPositionY)
         }
 
-        await video.ResizeMP4(`${videoPath}/sealed.mp4`, width, height, 0.5)
+        await video.ResizeMP4(`${videoPath}/sealed.mp4`, width, height, 1 / 6)
       }
 
       socket.emit(`merge_completed`, {

@@ -402,6 +402,7 @@ async function func() {
       height,
       watermarkPath,
       watermarkPath2,
+      customWatermark,
       isUseWatermark,
       time,
       totalFrameCount,
@@ -452,37 +453,68 @@ async function func() {
       if (isUseWatermark) {
         const scaledWatermarkFileName = 'scaledwatermark.png'
 
-        // 좌측 하단 워터마크
-        if (watermarkPath) {
-          let sealedFileName = 'sealed.mp4'
-          if (watermarkPath2) sealedFileName = 'temp.mp4'
+        if (customWatermark) {
+          const sealedFileName = 'sealed.mp4'
+          const { width: watermarkWidth, height: watermarkHeight, left, top, right, bottom } = customWatermark.transform
 
-          const { scaleFactor, scaledWatermarkHeight } = await video.ScaleWatermark(watermarkPath, 275, 115, videoPath, width, height, scaledWatermarkFileName)
+          const { scaleFactor, scaledWatermarkWidth, scaledWatermarkHeight } = await video.ScaleWatermark(customWatermark.path, watermarkWidth, watermarkHeight, videoPath, width, height, scaledWatermarkFileName)
 
-          const scaledGapX = Math.floor(70 * scaleFactor)
-          const scaledGapY = Math.floor(60 * scaleFactor)
+          let scaledGapX = 0, scaledGapY = 0
+          let watermarkPositionX = 0, watermarkPositionY = 0
 
-          const watermarkPositionX = scaledGapX
-          const watermarkPositionY = height - scaledWatermarkHeight - scaledGapY
+          if (!isNaN(Number(left))) {
+            scaledGapX = Math.floor(left * scaleFactor)
+            watermarkPositionX = scaledGapX
+          }
+          else if (!isNaN(Number(right))) {
+            scaledGapX = Math.floor(right * scaleFactor)
+            watermarkPositionX = width - scaledWatermarkWidth - scaledGapX
+          }
+
+          if (!isNaN(Number(top))) {
+            scaledGapY = Math.floor(top * scaleFactor)
+            watermarkPositionY = scaledGapY
+          }
+          else if (!isNaN(Number(bottom))) {
+            scaledGapY = Math.floor(bottom * scaleFactor)
+            watermarkPositionY = height - scaledWatermarkHeight - scaledGapY
+          }
 
           await video.PutWatermark(videoPath, 'result.mp4', sealedFileName, scaledWatermarkFileName, watermarkPositionX, watermarkPositionY)
         }
-        // 우측 상단 워터마크
-        if (watermarkPath2) {
-          let originalFileName = 'result.mp4'
+        else {
+          // 좌측 하단 워터마크
           if (watermarkPath) {
-            originalFileName = 'temp.mp4'
+            let sealedFileName = 'sealed.mp4'
+            if (watermarkPath2) sealedFileName = 'temp.mp4'
+  
+            const { scaleFactor, scaledWatermarkHeight } = await video.ScaleWatermark(watermarkPath, 275, 115, videoPath, width, height, scaledWatermarkFileName)
+  
+            const scaledGapX = Math.floor(70 * scaleFactor)
+            const scaledGapY = Math.floor(60 * scaleFactor)
+  
+            const watermarkPositionX = scaledGapX
+            const watermarkPositionY = height - scaledWatermarkHeight - scaledGapY
+  
+            await video.PutWatermark(videoPath, 'result.mp4', sealedFileName, scaledWatermarkFileName, watermarkPositionX, watermarkPositionY)
           }
-
-          const { scaleFactor, scaledWatermarkWidth } = await video.ScaleWatermark(watermarkPath2, 244, 60, videoPath, width, height, scaledWatermarkFileName)
-
-          const scaledGapX = Math.floor(40 * scaleFactor)
-          const scaledGapY = Math.floor(40 * scaleFactor)
-
-          const watermarkPositionX = width - scaledWatermarkWidth - scaledGapX
-          const watermarkPositionY = scaledGapY
-
-          await video.PutWatermark(videoPath, originalFileName, 'sealed.mp4', scaledWatermarkFileName, watermarkPositionX, watermarkPositionY)
+          // 우측 상단 워터마크
+          if (watermarkPath2) {
+            let originalFileName = 'result.mp4'
+            if (watermarkPath) {
+              originalFileName = 'temp.mp4'
+            }
+  
+            const { scaleFactor, scaledWatermarkWidth } = await video.ScaleWatermark(watermarkPath2, 244, 60, videoPath, width, height, scaledWatermarkFileName)
+  
+            const scaledGapX = Math.floor(40 * scaleFactor)
+            const scaledGapY = Math.floor(40 * scaleFactor)
+  
+            const watermarkPositionX = width - scaledWatermarkWidth - scaledGapX
+            const watermarkPositionY = scaledGapY
+  
+            await video.PutWatermark(videoPath, originalFileName, 'sealed.mp4', scaledWatermarkFileName, watermarkPositionX, watermarkPositionY)
+          }
         }
 
         await video.ResizeMP4(`${videoPath}/sealed.mp4`, width, height, 1 / 6)

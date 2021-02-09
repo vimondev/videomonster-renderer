@@ -20,6 +20,26 @@ function sleep(ms) {
 
 async function func() {
   const fs = require(`fs`)
+  const config = require(`./config`)
+  const video = require(`./modules/video`)
+  const global = require(`./global`)
+  const fsAsync = require(`./modules/fsAsync`)
+  const { v4: uuid } = require('uuid')
+  
+  async function CreateAndReadToken() {
+    try {
+      const tokenPath = 'C:/Users/Public/token.txt'
+      if(!await fsAsync.IsExistAsync(tokenPath)) {
+      }
+      await fsAsync.WriteFileAsync(tokenPath, uuid())
+      await fsAsync.ReadFileAsync(tokenPath)
+      return String(token)
+    }
+    catch(e) {
+      console.log(e)
+      return ""
+    }
+  }
 
   function AccessAsync(path) {
     return new Promise((resolve, reject) => {
@@ -97,17 +117,12 @@ async function func() {
     }
   }
 
-  const config = require(`./config`)
-  const video = require(`./modules/video`)
-  const global = require(`./global`)
-  const fsAsync = require(`./modules/fsAsync`)
-
   console.log(`start!`)
 
   await DeleteMediaCache()
   await global.ClearTask()
 
-  const socket = require(`socket.io-client`)(`http://10.0.0.7:3000`, {
+  const socket = require(`socket.io-client`)(`https://videomonsterdevs.koreacentral.cloudapp.azure.com:3000`, {
     transports: [`websocket`]
   })
 
@@ -128,10 +143,12 @@ async function func() {
   let isVideoRendering = false    // 비디오 렌더링 수행중?
   let isMerging = false           // 비디오 Merging 수행중?
 
+  const rendererid = CreateAndReadToken()
+
   socket.on(`connect`, () => {
     console.log(`Connected!`)
     console.log(`videoclient`)
-    socket.emit(`regist`, `videoclient`)
+    socket.emit(`regist`, { type: `videoclient`, rendererid })
   })
 
   socket.on(`disconnect`, () => {

@@ -151,6 +151,8 @@ async function func() {
     if(arg === 'StaticMachine') isStaticMachine = true
   })
 
+  console.log(`RendererId(${rendererid}) IsStaticMachine(${isStaticMachine})`)
+
   socket.on(`connect`, () => {
     const data = {
       type: 'videoclient',

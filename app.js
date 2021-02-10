@@ -25,7 +25,28 @@ async function func() {
   const global = require(`./global`)
   const fsAsync = require(`./modules/fsAsync`)
   const { v4: uuid } = require('uuid')
-  
+  const git = require('simple-git')()
+
+  async function GetTargetRenderServerIp() {
+    try {
+      const { current } = await git.status()
+      switch(current) {
+      
+        case 'master': return 'http://10.0.0.7:3000'
+        case 'dev': return 'http://10.0.0.19:3000'
+        case 'staticmachine': return 'https://videomonsterdevs.koreacentral.cloudapp.azure.com:3000'
+
+        default: 
+          console.log(`[ERROR] Target Server Ip is null. (Branch : ${current})`)
+          return null
+      }
+    }
+    catch (e) {
+      console.log(e)
+      return null
+    }
+  }
+
   async function CreateAndReadToken() {
     try {
       const tokenPath = 'C:/Users/Public/token.txt'
@@ -117,12 +138,15 @@ async function func() {
     }
   }
 
+  let renderServerIp = await GetTargetRenderServerIp()
+  if(!renderServerIp) console.log(`[Error] RenderServerIp not found.`)
+  
   console.log(`start!`)
 
   await DeleteMediaCache()
   await global.ClearTask()
 
-  const socket = require(`socket.io-client`)(`https://videomonsterdevs.koreacentral.cloudapp.azure.com:3000`, {
+  const socket = require(`socket.io-client`)(renderServerIp, {
     transports: [`websocket`]
   })
 
@@ -151,7 +175,7 @@ async function func() {
     if(arg === 'StaticMachine') isStaticMachine = true
   })
 
-  console.log(`RendererId(${rendererid}) IsStaticMachine(${isStaticMachine})`)
+  console.log(`RendererId(${rendererid}) IsStaticMachine(${isStaticMachine}) TargetServer(${renderServerIp})`)
 
   socket.on(`connect`, () => {
     const data = {

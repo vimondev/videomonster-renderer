@@ -143,7 +143,7 @@ async function func() {
   let isVideoRendering = false    // 비디오 렌더링 수행중?
   let isMerging = false           // 비디오 Merging 수행중?
 
-  const rendererid = CreateAndReadToken()
+  const rendererid = await CreateAndReadToken()
   let isStaticMachine = false
 
   const args = process.argv.slice(2)

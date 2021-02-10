@@ -34,7 +34,7 @@ async function func() {
       
         case 'master': return 'http://10.0.0.7:3000'
         case 'dev': return 'http://10.0.0.19:3000'
-        case 'staticmachine': return 'https://videomonsterdevs.koreacentral.cloudapp.azure.com:3000'
+        case 'staticmachine': return 'http://videomonsterdevs.koreacentral.cloudapp.azure.com:3000'
 
         default: 
           console.log(`[ERROR] Target Server Ip is null. (Branch : ${current})`)
@@ -140,7 +140,7 @@ async function func() {
 
   let renderServerIp = await GetTargetRenderServerIp()
   if(!renderServerIp) console.log(`[Error] RenderServerIp not found.`)
-  
+
   console.log(`start!`)
 
   await DeleteMediaCache()

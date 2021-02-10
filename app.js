@@ -32,7 +32,7 @@ async function func() {
       if(!await fsAsync.IsExistAsync(tokenPath)) {
       }
       await fsAsync.WriteFileAsync(tokenPath, uuid())
-      await fsAsync.ReadFileAsync(tokenPath)
+      const token = await fsAsync.ReadFileAsync(tokenPath)
       return String(token)
     }
     catch(e) {

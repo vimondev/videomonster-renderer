@@ -144,11 +144,22 @@ async function func() {
   let isMerging = false           // 비디오 Merging 수행중?
 
   const rendererid = CreateAndReadToken()
+  let isStaticMachine = false
+
+  const args = process.argv.slice(2)
+  args.forEach(arg => {
+    if(arg === 'StaticMachine') isStaticMachine = true
+  })
 
   socket.on(`connect`, () => {
+    const data = {
+      type: 'videoclient',
+      rendererid,
+      isStaticMachine
+    }
     console.log(`Connected!`)
-    console.log(`videoclient`)
-    socket.emit(`regist`, { type: `videoclient`, rendererid })
+    console.log(data)
+    socket.emit(`regist`, data)
   })
 
   socket.on(`disconnect`, () => {

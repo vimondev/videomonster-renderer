@@ -178,14 +178,14 @@ async function func() {
   console.log(`RendererId(${rendererid}) IsStaticMachine(${isStaticMachine}) TargetServer(${renderServerIp})`)
 
   socket.on(`connect`, () => {
-    const data = {
-      type: 'videoclient',
-      rendererid,
-      isStaticMachine
-    }
-    console.log(`Connected!`)
-    console.log(data)
-    socket.emit(`regist`, data)
+      const data = {
+        type: 'videoclient',
+        rendererid,
+        isStaticMachine
+      }
+      console.log(`Connected!`)
+      console.log(data)
+      socket.emit(`regist`, data)
   })
 
   socket.on(`disconnect`, () => {

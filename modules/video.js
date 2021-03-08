@@ -5,6 +5,7 @@ const {
     aerenderPath,
     ffmpegPath
 } = config
+const fsAsync = require('./fsAsync')
 const { retry, retryBoolean, TaskKill } = require('../global')
 
 function AccessAsync(path) {
@@ -141,6 +142,10 @@ exports.AudioRender = (aepPath, audioPath, totalFrameCount) => {
 exports.VideoRender = (rendererIndex, aepPath, startFrame, endFrame, hashTagString) => {
     return new Promise(async (resolve, reject) => {
         try {
+            const homeDir = `${require('os').homedir()}/AppData`
+            if (await fsAsync.AccessAsyncBoolean(`${homeDir}/Local/Temp`)) await fsAsync.UnlinkFolderRecursiveIgnoreError(`${homeDir}/Local/Temp`)
+            if (await fsAsync.AccessAsyncBoolean(`${homeDir}/Roaming/Adobe`)) await fsAsync.UnlinkFolderRecursiveIgnoreError(`${homeDir}/Roaming/Adobe`)
+
             const frameDuration = {}
             let nowTime = Date.now()
 

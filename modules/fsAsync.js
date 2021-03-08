@@ -150,3 +150,31 @@ const UnlinkFolderRecursive = (path) => {
     })
 }
 exports.UnlinkFolderRecursive = UnlinkFolderRecursive
+
+const UnlinkFolderRecursiveIgnoreError = (path) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            const files = await ReadDirAsync(path)
+
+            for (let i=0; i<files.length; i++) {
+                const file = path + '/' + files[i]
+                try {
+                    const lstat = await LstatAsync(file)
+                    if (lstat.isDirectory()) {
+                        await UnlinkFolderRecursive(file)
+                    }
+                    else await UnlinkAsync(file)
+                }
+                catch (e) {}
+            }
+            try {
+                await RemoveDirAsync(path)
+            }
+            catch (e) {}
+            resolve()
+        }
+        catch (e) {
+        }
+    })
+}
+exports.UnlinkFolderRecursiveIgnoreError = UnlinkFolderRecursiveIgnoreError

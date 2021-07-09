@@ -26,15 +26,19 @@ async function func() {
   const fsAsync = require(`./modules/fsAsync`)
   const { v4: uuid } = require('uuid')
   const git = require('simple-git')()
+  require('dotenv').config()
 
   async function GetTargetRenderServerIp() {
     try {
+      const isStaticMachine = process.env.IS_STATIC_MACHINE === 'true'
       const { current } = await git.status()
       switch(current) {
-      
-        case 'master': return 'http://10.0.0.7:3000'
-        case 'dev': return 'http://10.0.0.19:3000'
-        case 'staticmachine': return 'http://videomonsterdevs.koreacentral.cloudapp.azure.com:3000'
+        case 'master':
+          if (isStaticMachine) return 'http://videomonsterdevs.koreacentral.cloudapp.azure.com:3000'
+          return 'http://10.0.0.7:3000'
+        case 'dev':
+          if (isStaticMachine) return 'http://videomonsterdevs.koreacentral.cloudapp.azure.com:3000'
+          return 'http://10.0.0.19:3000'
 
         default: 
           console.log(`[ERROR] Target Server Ip is null. (Branch : ${current})`)
@@ -168,12 +172,7 @@ async function func() {
   let isMerging = false           // 비디오 Merging 수행중?
 
   const rendererid = await CreateAndReadToken()
-  let isStaticMachine = false
-
-  const args = process.argv.slice(2)
-  args.forEach(arg => {
-    if(arg === 'StaticMachine') isStaticMachine = true
-  })
+  const isStaticMachine = process.env.IS_STATIC_MACHINE === 'true'
 
   console.log(`RendererId(${rendererid}) IsStaticMachine(${isStaticMachine}) TargetServer(${renderServerIp})`)
 

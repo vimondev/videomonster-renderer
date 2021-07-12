@@ -20,6 +20,51 @@ function sleep(ms) {
 
 async function func() {
   const fs = require(`fs`)
+  const config = require(`./config`)
+  const video = require(`./modules/video`)
+  const global = require(`./global`)
+  const fsAsync = require(`./modules/fsAsync`)
+  const { v4: uuid } = require('uuid')
+  const git = require('simple-git')()
+  require('dotenv').config()
+
+  async function GetTargetRenderServerIp() {
+    try {
+      const isStaticMachine = process.env.IS_STATIC_MACHINE === 'true'
+      const { current } = await git.status()
+      switch(current) {
+        case 'master':
+          if (isStaticMachine) return 'http://videomonsterdevs.koreacentral.cloudapp.azure.com:3000'
+          return 'http://10.0.0.7:3000'
+        case 'dev':
+          if (isStaticMachine) return 'http://videomonsterdevs.koreacentral.cloudapp.azure.com:3000'
+          return 'http://10.0.0.19:3000'
+
+        default: 
+          console.log(`[ERROR] Target Server Ip is null. (Branch : ${current})`)
+          return null
+      }
+    }
+    catch (e) {
+      console.log(e)
+      return null
+    }
+  }
+
+  async function CreateAndReadToken() {
+    try {
+      const tokenPath = 'C:/Users/Public/token.txt'
+      if(!await fsAsync.IsExistAsync(tokenPath)) {
+      }
+      await fsAsync.WriteFileAsync(tokenPath, uuid())
+      const token = await fsAsync.ReadFileAsync(tokenPath)
+      return String(token)
+    }
+    catch(e) {
+      console.log(e)
+      return ""
+    }
+  }
 
   function AccessAsync(path) {
     return new Promise((resolve, reject) => {
@@ -97,17 +142,15 @@ async function func() {
     }
   }
 
-  const config = require(`./config`)
-  const video = require(`./modules/video`)
-  const global = require(`./global`)
-  const fsAsync = require(`./modules/fsAsync`)
+  let renderServerIp = await GetTargetRenderServerIp()
+  if(!renderServerIp) console.log(`[Error] RenderServerIp not found.`)
 
   console.log(`start!`)
 
   await DeleteMediaCache()
   await global.ClearTask()
 
-  const socket = require(`socket.io-client`)(`http://10.0.0.7:3000`, {
+  const socket = require(`socket.io-client`)(renderServerIp, {
     transports: [`websocket`]
   })
 
@@ -128,10 +171,20 @@ async function func() {
   let isVideoRendering = false    // 비디오 렌더링 수행중?
   let isMerging = false           // 비디오 Merging 수행중?
 
+  const rendererid = await CreateAndReadToken()
+  const isStaticMachine = process.env.IS_STATIC_MACHINE === 'true'
+
+  console.log(`RendererId(${rendererid}) IsStaticMachine(${isStaticMachine}) TargetServer(${renderServerIp})`)
+
   socket.on(`connect`, () => {
-    console.log(`Connected!`)
-    console.log(`videoclient`)
-    socket.emit(`regist`, `videoclient`)
+      const data = {
+        type: 'videoclient',
+        rendererid,
+        isStaticMachine
+      }
+      console.log(`Connected!`)
+      console.log(data)
+      socket.emit(`regist`, data)
   })
 
   socket.on(`disconnect`, () => {

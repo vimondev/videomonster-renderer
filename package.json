@@ -3,7 +3,9 @@
     "dotenv": "^7.0.0",
     "guid": "0.0.12",
     "jimp": "^0.6.1",
-    "socket.io-client": "^2.2.0"
+    "simple-git": "^2.34.2",
+    "socket.io-client": "^2.2.0",
+    "uuid": "^8.3.2"
   },
   "name": "videomonster-renderer",
   "version": "1.0.0",

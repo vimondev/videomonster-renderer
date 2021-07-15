@@ -55,8 +55,8 @@ async function func() {
     try {
       const tokenPath = 'C:/Users/Public/token.txt'
       if(!await fsAsync.IsExistAsync(tokenPath)) {
+        await fsAsync.WriteFileAsync(tokenPath, uuid())
       }
-      await fsAsync.WriteFileAsync(tokenPath, uuid())
       const token = await fsAsync.ReadFileAsync(tokenPath)
       return String(token)
     }

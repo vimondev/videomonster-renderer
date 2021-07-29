@@ -37,6 +37,7 @@ async function func() {
           if (isStaticMachine) return 'http://videomonsterdevs.koreacentral.cloudapp.azure.com:3000'
           return 'http://10.0.0.7:3000'
         case 'dev':
+        case 'staticmachine':
           if (isStaticMachine) return 'http://videomonsterdevs.koreacentral.cloudapp.azure.com:3000'
           return 'http://10.0.0.19:3000'
 

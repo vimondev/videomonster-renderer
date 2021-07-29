@@ -257,7 +257,7 @@ async function func() {
       })
 
       const elapsedTime = Date.now() - startTime
-      const delayTime = Math.max(50000, elapsedTime * 0.6)
+      const delayTime = Math.max(54000, elapsedTime * 0.7)
 
       console.log('delayStart!', delayTime)
       await sleep(delayTime)

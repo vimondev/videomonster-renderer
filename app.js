@@ -233,6 +233,8 @@ async function func() {
       await createFolder(config.fontPath)
       await global.InstallFont(fontPath)
 
+      const startTime = Date.now()
+
       // 오디오 렌더링
       await video.AudioRender(aepPath, audioPath, totalFrameCount)
 
@@ -254,6 +256,12 @@ async function func() {
         frameDuration[key] /= totalTime
       })
 
+      const elapsedTime = Date.now() - startTime
+      const delayTime = (elapsedTime * 0.3) / 2
+
+      console.log('delayStart!', delayTime)
+      await sleep(delayTime)
+
       // 모든 TIFF 파일을 취합하여 h264로 인코딩한다.
       renderStatus = ERenderStatus.MAKEMP4
       await video.MakeMP4(0, videoPath, hashTagString, frameRate)
@@ -264,6 +272,9 @@ async function func() {
       await video.ConcatAudio(videoPath, audioPath, time)
 
       await video.ResizeMP4(`${videoPath}/result.mp4`, width, height, 1 / 6)
+      
+      console.log('delayStart!', delayTime)
+      await sleep(delayTime)
 
       socket.emit(`template_confirm_render_completed`, {
         currentGroupIndex,

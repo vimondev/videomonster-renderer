@@ -20,6 +20,51 @@ function sleep(ms) {
 
 async function func() {
   const fs = require(`fs`)
+  const config = require(`./config`)
+  const video = require(`./modules/video`)
+  const global = require(`./global`)
+  const fsAsync = require(`./modules/fsAsync`)
+  const { v4: uuid } = require('uuid')
+  const git = require('simple-git')()
+  require('dotenv').config()
+
+  async function GetTargetRenderServerIp() {
+    try {
+      const isStaticMachine = process.env.IS_STATIC_MACHINE === 'true'
+      const { current } = await git.status()
+      switch(current) {
+        case 'master':
+          if (isStaticMachine) return 'http://vmclientstage.koreacentral.cloudapp.azure.com:3000'
+          return 'http://10.0.0.7:3000'
+        case 'dev':
+          if (isStaticMachine) return 'http://videomonsterdevs.koreacentral.cloudapp.azure.com:3000'
+          return 'http://10.0.0.19:3000'
+
+        default: 
+          console.log(`[ERROR] Target Server Ip is null. (Branch : ${current})`)
+          return null
+      }
+    }
+    catch (e) {
+      console.log(e)
+      return null
+    }
+  }
+
+  async function CreateAndReadToken() {
+    try {
+      const tokenPath = 'C:/Users/Public/token.txt'
+      if(!await fsAsync.IsExistAsync(tokenPath)) {
+        await fsAsync.WriteFileAsync(tokenPath, uuid())
+      }
+      const token = await fsAsync.ReadFileAsync(tokenPath)
+      return String(token)
+    }
+    catch(e) {
+      console.log(e)
+      return ""
+    }
+  }
 
   function AccessAsync(path) {
     return new Promise((resolve, reject) => {
@@ -97,17 +142,15 @@ async function func() {
     }
   }
 
-  const config = require(`./config`)
-  const video = require(`./modules/video`)
-  const global = require(`./global`)
-  const fsAsync = require(`./modules/fsAsync`)
+  let renderServerIp = await GetTargetRenderServerIp()
+  if(!renderServerIp) console.log(`[Error] RenderServerIp not found.`)
 
   console.log(`start!`)
 
   await DeleteMediaCache()
   await global.ClearTask()
 
-  const socket = require(`socket.io-client`)(`http://10.0.0.7:3000`, {
+  const socket = require(`socket.io-client`)(renderServerIp, {
     transports: [`websocket`]
   })
 
@@ -128,10 +171,20 @@ async function func() {
   let isVideoRendering = false    // 비디오 렌더링 수행중?
   let isMerging = false           // 비디오 Merging 수행중?
 
+  const rendererid = await CreateAndReadToken()
+  const isStaticMachine = process.env.IS_STATIC_MACHINE === 'true'
+
+  console.log(`RendererId(${rendererid}) IsStaticMachine(${isStaticMachine}) TargetServer(${renderServerIp})`)
+
   socket.on(`connect`, () => {
-    console.log(`Connected!`)
-    console.log(`videoclient`)
-    socket.emit(`regist`, `videoclient`)
+      const data = {
+        type: 'videoclient',
+        rendererid,
+        isStaticMachine
+      }
+      console.log(`Connected!`)
+      console.log(data)
+      socket.emit(`regist`, data)
   })
 
   socket.on(`disconnect`, () => {
@@ -142,10 +195,10 @@ async function func() {
   // 만약 작업을 수행하고 있지 않다면 (VM이 재부팅되거나, 프로세스가 다시 시작되었을 경우) 에러 코드를 서버에 전송한다.
   // Template Confirm Rendering 수행 여부 확인
   socket.on(`is_stopped_template_confirm_rendering`, async data => {
-    const { currentGroupIndex } = data
+    const { currentGroupKey } = data
     if (isTemplateConfirmRendering == false) {
       socket.emit(`template_confirm_render_completed`, {
-        currentGroupIndex,
+        currentGroupKey,
         errCode: `ERR_TEMPLATE_CONFIRM_RENDER_STOPPED`
       })
     }
@@ -153,10 +206,10 @@ async function func() {
 
   // Audio Rendering 수행 여부 확인
   socket.on(`is_stopped_audio_rendering`, async data => {
-    const { currentGroupIndex } = data
+    const { currentGroupKey } = data
     if (isAudioRendering == false) {
       socket.emit(`audio_render_completed`, {
-        currentGroupIndex,
+        currentGroupKey,
         errCode: `ERR_AUDIO_RENDER_STOPPED`
       })
     }
@@ -164,10 +217,10 @@ async function func() {
 
   // Video Rendering 수행 여부 확인
   socket.on(`is_stopped_video_rendering`, async data => {
-    const { currentGroupIndex } = data
+    const { currentGroupKey } = data
     if (isVideoRendering == false) {
       socket.emit(`video_render_completed`, {
-        currentGroupIndex,
+        currentGroupKey,
         errCode: `ERR_VIDEO_RENDER_STOPPED`
       })
     }
@@ -175,10 +228,10 @@ async function func() {
 
   // Video Merging 수행 여부 확인
   socket.on(`is_stopped_merging`, async data => {
-    const { currentGroupIndex } = data
+    const { currentGroupKey } = data
     if (isMerging == false) {
       socket.emit(`merge_completed`, {
-        currentGroupIndex,
+        currentGroupKey,
         errCode: `ERR_MERGE_STOPPED`
       })
     }
@@ -188,7 +241,7 @@ async function func() {
   socket.on(`template_confirm_render_start`, async (data) => {
     isTemplateConfirmRendering = true
     let {
-      currentGroupIndex,
+      currentGroupKey,
 
       aepPath,
       audioPath,
@@ -224,7 +277,7 @@ async function func() {
       video.ResetTotalRenderedFrameCount()
       renderStatus = ERenderStatus.AUDIO
       renderStartedTime = Date.now()
-      ReportProgress(currentGroupIndex, 0)
+      ReportProgress(currentGroupKey, 0)
 
       // 폰트 설치
       if (await fsAsync.IsExistAsync(config.fontPath)) {
@@ -266,7 +319,7 @@ async function func() {
       await video.ResizeMP4(`${videoPath}/result.mp4`, width, height, 1 / 6)
 
       socket.emit(`template_confirm_render_completed`, {
-        currentGroupIndex,
+        currentGroupKey,
         frameDuration,
         errCode: null
       })
@@ -274,7 +327,7 @@ async function func() {
     catch (e) {
       console.log(e)
       socket.emit(`template_confirm_render_completed`, {
-        currentGroupIndex,
+        currentGroupKey,
         frameDuration: null,
         errCode: e
       })
@@ -288,7 +341,7 @@ async function func() {
   socket.on(`video_render_start`, async (data) => {
     isVideoRendering = true
     let {
-      currentGroupIndex,
+      currentGroupKey,
       rendererIndex,
 
       aepPath,
@@ -320,7 +373,7 @@ async function func() {
       video.ResetTotalRenderedFrameCount()
       renderStatus = ERenderStatus.VIDEO
       renderStartedTime = Date.now()
-      ReportProgress(currentGroupIndex, rendererIndex)
+      ReportProgress(currentGroupKey, rendererIndex)
 
       // 폰트 설치
       if (await fsAsync.IsExistAsync(config.fontPath)) {
@@ -340,14 +393,14 @@ async function func() {
       await video.MakeMP4(rendererIndex, videoPath, hashTagString, frameRate)
 
       socket.emit(`video_render_completed`, {
-        currentGroupIndex,
+        currentGroupKey,
         errCode: null
       })
     }
     catch (e) {
       console.log(e)
       socket.emit(`video_render_completed`, {
-        currentGroupIndex,
+        currentGroupKey,
         errCode: e
       })
     }
@@ -357,7 +410,7 @@ async function func() {
   })
 
   // 1초에 한번씩 렌더서버에 진행률을 보고한다.
-  function ReportProgress(currentGroupIndex, rendererIndex) {
+  function ReportProgress(currentGroupKey, rendererIndex) {
     if (renderStatus != ERenderStatus.NONE) {
       if (renderStartedTime != null) {
         // 템플릿 컨펌 렌더링 2시간동안 멈출경우 프로세스 중지
@@ -376,14 +429,14 @@ async function func() {
         case ERenderStatus.VIDEO:
         case ERenderStatus.MAKEMP4:
           socket.emit(`report_progress`, {
-            currentGroupIndex,
+            currentGroupKey,
             renderStatus,
             renderedFrameCount: video.GetTotalRenderedFrameCount()
           })
           break
       }
 
-      setTimeout(ReportProgress, 1000, currentGroupIndex, rendererIndex)
+      setTimeout(ReportProgress, 1000, currentGroupKey, rendererIndex)
     }
   }
 
@@ -392,7 +445,7 @@ async function func() {
   socket.on(`merge_start`, async (data) => {
     isMerging = true
     const {
-      currentGroupIndex,
+      currentGroupKey,
       rendererCount,
       aepPath,
       videoPath,
@@ -521,14 +574,14 @@ async function func() {
       }
 
       socket.emit(`merge_completed`, {
-        currentGroupIndex,
+        currentGroupKey,
         errCode: null
       })
     }
     catch (e) {
       console.log(e)
       socket.emit(`merge_completed`, {
-        currentGroupIndex,
+        currentGroupKey,
         errCode: e
       })
     }

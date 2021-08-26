@@ -139,7 +139,7 @@ exports.AudioRender = (aepPath, audioPath, totalFrameCount) => {
 }
 
 // 비디오 렌더링
-exports.VideoRender = (rendererIndex, aepPath, startFrame, endFrame, hashTagString) => {
+exports.VideoRender = (rendererIndex, videoPath, aepPath, startFrame, endFrame, hashTagString) => {
     return new Promise(async (resolve, reject) => {
         try {
             const homeDir = `${require('os').homedir()}/AppData`
@@ -150,27 +150,27 @@ exports.VideoRender = (rendererIndex, aepPath, startFrame, endFrame, hashTagStri
             let nowTime = Date.now()
 
             console.log(`Video Render Start!`)
-            // 시작 전에 반드시 localPath 청소
-            if (await AccessAsync(localPath)) {
-                if (await AccessAsync(`${localPath}/${rendererIndex}`)) {
-                    let files = await retry(ReadDirAsync(`${localPath}/${rendererIndex}`))
+            // 시작 전에 반드시 videoPath 청소
+            if (await AccessAsync(videoPath)) {
+                if (await AccessAsync(`${videoPath}/${rendererIndex}`)) {
+                    let files = await retry(ReadDirAsync(`${videoPath}/${rendererIndex}`))
                     for (let i = 0; i < files.length; i++) {
                         // 기존 팡닐들 모두 삭제
-                        await retry(UnlinkAsync(`${localPath}/${rendererIndex}/${files[i]}`))
+                        await retry(UnlinkAsync(`${videoPath}/${rendererIndex}/${files[i]}`))
                     }
                 }
                 // 기존에 생성된 폴더가 없을 경우 생성
                 else
-                    await retry(MkdirAsync(`${localPath}/${rendererIndex}`))
+                    await retry(MkdirAsync(`${videoPath}/${rendererIndex}`))
             }
 
             // startFrame ~ endFrame까지 부분 렌더링 (TIFF로 뽑아낸다.)
             // const spawn = require(`child_process`).spawn,
-            //     ls = spawn(`cmd`, [`/c`, `aerender`, `-project`, `"${aepPath}"`, `-comp`, `"#Target"`, `-s`, `${startFrame}`, `-e`, `${endFrame}`, `-RStemplate`, `"Best Settings"`, `-OMtemplate`, `"TIFF Sequence with Alpha"`, `-output`, `"${localPath}/${rendererIndex}/frames[${hashTagString}].tif"`, `-continueOnMissingFootage`], { cwd: aerenderPath })
+            //     ls = spawn(`cmd`, [`/c`, `aerender`, `-project`, `"${aepPath}"`, `-comp`, `"#Target"`, `-s`, `${startFrame}`, `-e`, `${endFrame}`, `-RStemplate`, `"Best Settings"`, `-OMtemplate`, `"TIFF Sequence with Alpha"`, `-output`, `"${videoPath}/${rendererIndex}/frames[${hashTagString}].tif"`, `-continueOnMissingFootage`], { cwd: aerenderPath })
 
             // startFrame ~ endFrame까지 부분 렌더링 (AVI로 뽑아낸다.)
             const spawn = require(`child_process`).spawn,
-                ls = spawn(`cmd`, [`/c`, `aerender`, `-project`, `"${aepPath}"`, `-comp`, `"#Target"`, `-s`, `${startFrame}`, `-e`, `${endFrame}`, `-RStemplate`, `"Best Settings"`, `-OMtemplate`, `"Lossless"`, `-output`, `"${localPath}/${rendererIndex}/out.avi"`, `-continueOnMissingFootage`], { cwd: aerenderPath })
+                ls = spawn(`cmd`, [`/c`, `aerender`, `-project`, `"${aepPath}"`, `-comp`, `"#Target"`, `-s`, `${startFrame}`, `-e`, `${endFrame}`, `-RStemplate`, `"Best Settings"`, `-OMtemplate`, `"Lossless"`, `-output`, `"${videoPath}/${rendererIndex}/out.avi"`, `-continueOnMissingFootage`], { cwd: aerenderPath })
 
             // 프로세스 수행 중 print 이벤트 발생 시 콜백
             ls.stdout.on('data', function (data) {
@@ -204,7 +204,7 @@ exports.VideoRender = (rendererIndex, aepPath, startFrame, endFrame, hashTagStri
                     totalRenderedFrameCount = Number(endFrame) - Number(startFrame) + 1
 
                     await sleep(1000)
-                    // let files = (await retry(ReadDirAsync(`${localPath}/${rendererIndex}`))).sort()
+                    // let files = (await retry(ReadDirAsync(`${videoPath}/${rendererIndex}`))).sort()
 
                     // // 각 TIFF 파일을 Rename해준다. (ffmpeg 돌리려면 프레임 숫자가 0부터 시작해야함.)
                     // for (let i=0; i<files.length; i++) {
@@ -213,7 +213,7 @@ exports.VideoRender = (rendererIndex, aepPath, startFrame, endFrame, hashTagStri
                     //     digit += i
 
                     //     let filename = `frames${digit}.tif`
-                    //     await retry(RenameAsync(`${localPath}/${rendererIndex}/${files[i]}`, `${localPath}/${rendererIndex}/${filename}`))
+                    //     await retry(RenameAsync(`${videoPath}/${rendererIndex}/${files[i]}`, `${videoPath}/${rendererIndex}/${filename}`))
                     // }
                 }
                 catch (e) {
@@ -242,10 +242,10 @@ exports.MakeMP4 = (rendererIndex, videoPath, hashTagString, frameRate) => {
 
             // h264 인코딩을 수행한다.
             // const spawn = require(`child_process`).spawn,
-            //     ls = spawn(`cmd`, [`/c`, `ffmpeg`, `-framerate`, `${frameRate}`, `-i`, `${localPath}/${rendererIndex}/frames%${digit}d.tif`, `-c:v`, `libx264`, `-pix_fmt`, `yuv420p`, `-r`, `${frameRate}`, `${videoPath}/out${rendererIndex}.mp4`, `-y`], { cwd: ffmpegPath })
+            //     ls = spawn(`cmd`, [`/c`, `ffmpeg`, `-framerate`, `${frameRate}`, `-i`, `${videoPath}/${rendererIndex}/frames%${digit}d.tif`, `-c:v`, `libx264`, `-pix_fmt`, `yuv420p`, `-r`, `${frameRate}`, `${videoPath}/out${rendererIndex}.mp4`, `-y`], { cwd: ffmpegPath })
             
             const spawn = require(`child_process`).spawn,
-                ls = spawn(`cmd`, [`/c`, `ffmpeg`, `-i`, `${localPath}/${rendererIndex}/out.avi`, `-c:v`, `libx264`, `-pix_fmt`, `yuv420p`, `-r`, `${frameRate}`, `${videoPath}/out${rendererIndex}.mp4`, `-y`], { cwd: ffmpegPath })
+                ls = spawn(`cmd`, [`/c`, `ffmpeg`, `-i`, `${videoPath}/${rendererIndex}/out.avi`, `-c:v`, `libx264`, `-pix_fmt`, `yuv420p`, `-r`, `${frameRate}`, `${videoPath}/out${rendererIndex}.mp4`, `-y`], { cwd: ffmpegPath })
 
             // 프로세스 수행 중 print 이벤트 발생 시 콜백
             ls.stdout.on('data', function (data) {
@@ -272,12 +272,12 @@ exports.MakeMP4 = (rendererIndex, videoPath, hashTagString, frameRate) => {
                     await sleep(1000)
 
                     // 렌더링이 완료된 후 TIFF or AVI 파일 제거
-                    let files = await retry(ReadDirAsync(`${localPath}/${rendererIndex}`))
+                    let files = await retry(ReadDirAsync(`${videoPath}/${rendererIndex}`))
                     for (let i = 0; i < files.length; i++) {
                         files[i] = files[i].toLowerCase()
-                        if (await AccessAsync(`${localPath}/${rendererIndex}/${files[i]}`)) {
+                        if (await AccessAsync(`${videoPath}/${rendererIndex}/${files[i]}`)) {
                             try {
-                                await retry(UnlinkAsync(`${localPath}/${rendererIndex}/${files[i]}`))
+                                await retry(UnlinkAsync(`${videoPath}/${rendererIndex}/${files[i]}`))
                             } catch (e) {
                                 console.log(e)
                             }

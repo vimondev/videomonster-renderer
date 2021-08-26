@@ -186,7 +186,12 @@ exports.VideoRender = (rendererIndex, videoPath, aepPath, startFrame, endFrame, 
                     const frame = data.substring(startIndex, endIndex)
                     if(!isNaN(Number(frame))) {
                         totalRenderedFrameCount = Number(frame)
-                        frameDuration[frame] = Date.now() - nowTime
+
+                        const remainMs = Date.now() - nowTime
+                        if (frameDuration.hasOwnProperty(frame)) {
+                            frameDuration[frame] += remainMs
+                        }
+                        else frameDuration[frame] = remainMs
                     }
                 }
                 nowTime = Date.now()

@@ -179,15 +179,15 @@ exports.VideoRender = (rendererIndex, videoPath, aepPath, startFrame, endFrame, 
 
                 // PROGRESS: (frameIndex) 로 출력되는 결과에서 frameIndex 값을 가져온다.
                 if (data.includes(`PROGRESS:`) && data.includes(`(`) && data.includes(`)`)) {
-                    // totalRenderedFrameCount을 하나씩 증가시켜준다. (단, 총 프레임 수보다 더 값이 높아지지 않게 막아놓음)
-                    totalRenderedFrameCount = Math.min(totalRenderedFrameCount + 1, Number(endFrame) - Number(startFrame) + 1)
-
                     const startIndex = data.indexOf(`(`) + 1
                     const endIndex = data.indexOf(`)`)
 
                     // 각 frame 렌더링에 걸린 시간을 계산하여 frameDuration에 저장한다.
                     const frame = data.substring(startIndex, endIndex)
-                    if(!isNaN(Number(frame))) frameDuration[frame] = Date.now() - nowTime
+                    if(!isNaN(Number(frame))) {
+                        totalRenderedFrameCount = Number(frame)
+                        frameDuration[frame] = Date.now() - nowTime
+                    }
                 }
                 nowTime = Date.now()
             })

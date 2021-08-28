@@ -1,7 +1,6 @@
 const fs = require(`fs`)
 const config = require(`../config`)
 const {
-    localPath,
     aerenderPath,
     ffmpegPath
 } = config
@@ -551,13 +550,13 @@ async function FadeOutProc(inputAudioPath, outputAudioPath, startTime, fadeDurat
 exports.AudioFadeInOut = (audioPath, startTime, fadeDuration, videoDuration, volume) => {
     return new Promise(async (resolve, reject) => {
 
-        const localAudioPath = `${localPath}/music`
+        const localAudioPath = `${videoPath}/music`
         const volumeAppliedOutputPath = `${localAudioPath}/volume_applied.m4a`
         const fadeInAudioOutputPath = `${localAudioPath}/audio_in.m4a`
         const fadeOutAudioOutputPath = `${localAudioPath}/audio_in_out.m4a`
 
         try {
-            // 시작 전에 반드시 localPath 청소
+            // 시작 전에 반드시 videoPath 청소
             if (await AccessAsync(`${localAudioPath}`)) {
                 let files = await retry(ReadDirAsync(`${localAudioPath}`))
                 for (let i = 0; i < files.length; i++) {

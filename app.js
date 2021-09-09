@@ -39,7 +39,7 @@ async function func() {
           // return 'http://10.0.0.7:3000'
         case 'dev':
           // if (isStaticMachine)
-          return 'http://videomonsterdevs.koreacentral.cloudapp.azure.com:3000'
+          return 'http://videomonster.iptime.org:3000'
           // return 'http://10.0.0.19:3000'
 
         default: 

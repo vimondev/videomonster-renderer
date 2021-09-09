@@ -34,11 +34,13 @@ async function func() {
       const { current } = await git.status()
       switch(current) {
         case 'master':
-          if (isStaticMachine) return 'http://vmclientstage.koreacentral.cloudapp.azure.com:3000'
-          return 'http://10.0.0.7:3000'
+          // if (isStaticMachine)
+          return 'http://vmclientstage.koreacentral.cloudapp.azure.com:3000'
+          // return 'http://10.0.0.7:3000'
         case 'dev':
-          if (isStaticMachine) return 'http://videomonsterdevs.koreacentral.cloudapp.azure.com:3000'
-          return 'http://10.0.0.19:3000'
+          // if (isStaticMachine)
+          return 'http://videomonsterdevs.koreacentral.cloudapp.azure.com:3000'
+          // return 'http://10.0.0.19:3000'
 
         default: 
           console.log(`[ERROR] Target Server Ip is null. (Branch : ${current})`)
@@ -291,7 +293,7 @@ async function func() {
 
       // 비디오 렌더링 (모든 프레임을 TIFF 파일로 전부 뽑아낸다.)
       renderStatus = ERenderStatus.VIDEO
-      const res = await video.VideoRender(0, videoPath, aepPath, startFrame, endFrame, hashTagString)
+      const res = await video.VideoRender(0, aepPath, startFrame, endFrame, hashTagString)
 
       // 각 Frame별 렌더링 시간을 계산한다.
       const frameDuration = {}
@@ -386,7 +388,7 @@ async function func() {
 
       // 비디오 렌더링 (프레임을 TIFF 파일로 전부 뽑아낸다.)
       // startFrame, endFrame까지 뽑아낸다.
-      await video.VideoRender(rendererIndex, videoPath, aepPath, startFrame, endFrame, hashTagString)
+      await video.VideoRender(rendererIndex, aepPath, startFrame, endFrame, hashTagString)
 
       // 렌더링한 TIFF 파일들을 취합하여 h264로 인코딩한다.
       renderStatus = ERenderStatus.MAKEMP4

@@ -38,8 +38,9 @@ async function func() {
           return 'http://vmclientstage.koreacentral.cloudapp.azure.com:3000'
           // return 'http://10.0.0.7:3000'
         case 'dev':
-          if (isStaticMachine) return 'http://videomonsterdevs.koreacentral.cloudapp.azure.com:3000'
-          return 'http://10.0.0.19:3000'
+          // if (isStaticMachine)
+          return 'http://videomonsterdevs.koreacentral.cloudapp.azure.com:3000'
+          // return 'http://10.0.0.19:3000'
 
         default: 
           console.log(`[ERROR] Target Server Ip is null. (Branch : ${current})`)

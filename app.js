@@ -1,26 +1,3 @@
-// VPN용 임시 코드, 추후 삭제할 예정
-const replaceDrivePath = data => {
-	if (typeof data === 'object') {
-		for (const key in data) {
-			if (typeof data[key] === 'string') {
-				if (data[key].startsWith("U:")) data[key] = data[key].replace("U:", "\\\\10.0.0.18\\gettyimages")
-				if (data[key].startsWith("u:")) data[key] = data[key].replace("u:", "\\\\10.0.0.18\\gettyimages")
-
-				if (data[key].startsWith("W:")) data[key] = data[key].replace("W:", "\\\\10.0.0.18\\admin-dev")
-				if (data[key].startsWith("w:")) data[key] = data[key].replace("w:", "\\\\10.0.0.18\\admin-dev")
-				if (data[key].startsWith("V:")) data[key] = data[key].replace("V:", "\\\\10.0.0.18\\user-dev")
-				if (data[key].startsWith("v:")) data[key] = data[key].replace("v:", "\\\\10.0.0.18\\user-dev")
-
-				if (data[key].startsWith("Y:")) data[key] = data[key].replace("Y:", "\\\\10.0.0.18\\admin-upload")
-				if (data[key].startsWith("y:")) data[key] = data[key].replace("y:", "\\\\10.0.0.18\\admin-upload")
-				if (data[key].startsWith("Z:")) data[key] = data[key].replace("Z:", "\\\\10.0.0.18\\user-upload")
-				if (data[key].startsWith("z:")) data[key] = data[key].replace("z:", "\\\\10.0.0.18\\user-upload")
-			}
-		}
-	}
-	return data
-}
-
 function Exec(shell) {
   return new Promise((resolve, reject) => {
     const exec = require('child_process').exec
@@ -265,8 +242,6 @@ async function func() {
   // Template Confirm Render 시작
   socket.on(`template_confirm_render_start`, async (data) => {
     isTemplateConfirmRendering = true
-    if (isStaticMachine) data = replaceDrivePath(data)
-
     let {
       currentGroupKey,
 
@@ -367,8 +342,6 @@ async function func() {
   // 비디오 분산 렌더링 시작
   socket.on(`video_render_start`, async (data) => {
     isVideoRendering = true
-    if (isStaticMachine) data = replaceDrivePath(data)
-
     let {
       currentGroupKey,
       rendererIndex,
@@ -473,8 +446,6 @@ async function func() {
   // 렌더러 그룹의 각 0번 렌더러가 단독으로 수행
   socket.on(`merge_start`, async (data) => {
     isMerging = true
-    if (isStaticMachine) data = replaceDrivePath(data)
-    
     const {
       currentGroupKey,
       rendererCount,

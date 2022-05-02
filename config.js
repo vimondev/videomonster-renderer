@@ -5,6 +5,6 @@ module.exports = {
     localPath: `${DOCUMENTS_PATH}/result`,
     ffmpegPath: `${DOCUMENTS_PATH}/ffmpeg/bin`,
   
-    aerenderPath: `${PROGRAM_PATH}/Adobe/Adobe After Effects 2020/Support Files`,
+    aerenderPath: `${PROGRAM_PATH}/Adobe/Adobe After Effects 2021/Support Files`,
     fontPath: `${PROGRAM_PATH}/Common Files/Adobe/Fonts`
 }

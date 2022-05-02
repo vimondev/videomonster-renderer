@@ -35,9 +35,6 @@ async function func() {
       
       const { current } = await git.status()
       switch(current) {
-        case 'feat/us-region-test': // US Region 테스트용 코드
-          if (region === 'US') return 'http://vmclientusstage.eastus.cloudapp.azure.com:3000'
-          return 'http://vmclientusstage.eastus.cloudapp.azure.com:3000'
         case 'master':
           // if (isStaticMachine)
           if (region === 'US') return 'http://vmclientusstage.eastus.cloudapp.azure.com:3000'

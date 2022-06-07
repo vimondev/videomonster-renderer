@@ -247,6 +247,7 @@ async function func() {
     isTemplateConfirmRendering = true
     let {
       currentGroupKey,
+      rendererIndex,
 
       aepPath,
       audioPath,
@@ -282,7 +283,7 @@ async function func() {
       video.ResetTotalRenderedFrameCount()
       renderStatus = ERenderStatus.AUDIO
       renderStartedTime = Date.now()
-      ReportProgress(currentGroupKey, 0)
+      ReportProgress(currentGroupKey, rendererIndex)
 
       // 폰트 설치
       if (await fsAsync.IsExistAsync(config.fontPath)) {
@@ -296,7 +297,7 @@ async function func() {
 
       // 비디오 렌더링 (모든 프레임을 TIFF 파일로 전부 뽑아낸다.)
       renderStatus = ERenderStatus.VIDEO
-      const res = await video.VideoRender(0, aepPath, startFrame, endFrame, hashTagString)
+      const res = await video.VideoRender(rendererIndex, aepPath, startFrame, endFrame, hashTagString)
 
       // 각 Frame별 렌더링 시간을 계산한다.
       const frameDuration = {}
@@ -314,7 +315,8 @@ async function func() {
 
       // 모든 TIFF 파일을 취합하여 h264로 인코딩한다.
       renderStatus = ERenderStatus.MAKEMP4
-      await video.MakeMP4(0, videoPath, hashTagString, frameRate)
+      await video.MakeMP4(rendererIndex, videoPath, hashTagString, frameRate)
+
 
       // Merge를 수행한다. (Template Confirm Rendering은 렌더러를 1개만 사용하므로 Merge는 별로 의미가 없음.)
       await video.Merge(1, videoPath)

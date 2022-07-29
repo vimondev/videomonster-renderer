@@ -317,9 +317,14 @@ exports.Merge = (rendererCount, videoPath) => {
             console.log(`Merge Start!`)
 
             // merge 정보 txt 파일을 생성해준다.
+            const fileList = await fsAsync.ReadDirAsync(videoPath)
+            const fileRegex = new RegExp('out.*[0-9]\.mp4')
             let fileBody = ``
-            for (let i = 0; i < rendererCount; i++) {
-                fileBody += `file out${i}.mp4\n`
+            for (let i = 0; i < fileList.length; i++) {
+                const fileName = fileList[i]
+                if (fileRegex.test(fileName)) {
+                    fileBody += `file ${fileName}\n`
+                }
             }
 
             await retry(WriteFileAsync(`${videoPath}/file.txt`, fileBody))

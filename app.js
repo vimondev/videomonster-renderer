@@ -179,7 +179,6 @@ async function func() {
     isSourceEncoding = true
     let {
       currentGroupKey,
-      rendererIndex,
 
       sourceId,
       userId,
@@ -187,15 +186,12 @@ async function func() {
       fileName,
       fileType,
       resolution,
-      originSrcUrl,
-      smallSrcUrl,
-      thumbnailUrl,
       userSourceUploadPath,
-      videoPath,
-      videoSmallPath,
-      thumbnailPath,
       meta,
-      encodeStatus: _encodeStatus
+
+      encodeStatus: _encodeStatus,
+      videoFilePath,
+      thumbnailFilePath,
     } = data
 
     console.log(data)
@@ -218,15 +214,13 @@ async function func() {
       const resize = { width: Math.floor(rW), height: Math.floor(rH) }
       const scaleFactor = Math.min(resize.width / resolution.width, resize.height / resolution.height)
       
-      console.log(`[ ----- DEBUG ----- ] EncodeToMp4 Start (${videoPath})`)
-      await video.EncodeToMP4(userSourceUploadPath, videoPath)
+      console.log(`[ ----- DEBUG ----- ] EncodeToMp4 Start (${videoFilePath})`)
+      await video.EncodeToMP4(userSourceUploadPath, videoFilePath)
       console.log(`[ ----- DEBUG ----- ] EncodeToMp4 Finish`)
-      await video.ResizeMP4WithPath(videoPath, videoSmallPath, resolution.width, resolution.height, scaleFactor)
-      console.log(`[ ----- DEBUG ----- ] ResizeMP4WithPath Finish (${videoSmallPath})`)
-      const screenshopFilePath = thumbnailPath.replace('THUMB', 'SCREENSHOT')
+      const screenshopFilePath = thumbnailFilePath.replace('THUMB', 'SCREENSHOT')
       await video.Screenshot(userSourceUploadPath, screenshopFilePath)
-      await image.Optimize(screenshopFilePath, thumbnailPath, { resize })
-      console.log(`[ ----- DEBUG ----- ] Screenshot Finish (${thumbnailPath})`)
+      await image.Optimize(screenshopFilePath, thumbnailFilePath, { resize })
+      console.log(`[ ----- DEBUG ----- ] Screenshot Finish (${thumbnailFilePath})`)
 
       socket?.emit(`source_encode_completed`, {
         currentGroupKey,
@@ -249,7 +243,6 @@ async function func() {
     isSourceEncoding = true
     let {
       currentGroupKey,
-      rendererIndex,
 
       sourceId,
       userId,
@@ -259,10 +252,11 @@ async function func() {
       resolution,
       userSourcePath,
       userSourceUploadPath,
-      imagePath,
-      imageSmallPath,
       meta,
-      encodeStatus: _encodeStatus
+
+      encodeStatus: _encodeStatus,
+      imageFilePath,
+      imageSmallFilePath
     } = data
 
     console.log(data)
@@ -281,14 +275,14 @@ async function func() {
       encodeStatus = _encodeStatus
       renderStartedTime = Date.now()
 
-      console.log(`[ ----- DEBUG ----- ] SharpToImage Start (${imagePath})`)
+      console.log(`[ ----- DEBUG ----- ] SharpToImage Start (${imageFilePath})`)
       const { width: rW, height: rH } = image.CalMinResolution(512, 512, resolution.width, resolution.height)
       const resize = { width: Math.floor(rW), height: Math.floor(rH) }
 
-      await image.Optimize(userSourceUploadPath, imagePath)
+      await image.Optimize(userSourceUploadPath, imageFilePath)
       console.log(`[ ----- DEBUG ----- ] SharpToImage Finish`)
-      await image.Optimize(imagePath, imageSmallPath, { resize })
-      console.log(`[ ----- DEBUG ----- ] SharpToImage Small Finish (${imageSmallPath})`)
+      await image.Optimize(imageFilePath, imageSmallFilePath, { resize })
+      console.log(`[ ----- DEBUG ----- ] SharpToImage Small Finish (${imageSmallFilePath})`)
 
       socket?.emit(`source_encode_completed`, {
         currentGroupKey,

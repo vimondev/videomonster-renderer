@@ -158,9 +158,9 @@ async function func() {
   await DeleteMediaCache()
   await global.ClearTask()
 
-  const socket = require(`socket.io-client`)(renderServerIp, {
-    transports: [`websocket`]
-  })
+  // const socket = require(`socket.io-client`)(renderServerIp, {
+  //   transports: [`websocket`]
+  // })
 
   let renderStatus = 0
   let encodeStatus = 0
@@ -174,11 +174,6 @@ async function func() {
   let isVideoRendering = false    // 비디오 렌더링 수행중?
   let isMerging = false           // 비디오 Merging 수행중?
   let isSourceEncoding = false    // 유저 소스 인코딩 수행중?
-
-  const rendererid = await CreateAndReadToken()
-  const isStaticMachine = process.env.IS_STATIC_MACHINE === 'true'
-
-  console.log(`RendererId(${rendererid}) IsStaticMachine(${isStaticMachine}) TargetServer(${renderServerIp})`)
 
   async function OnVideoSourceEncodeStart (data) {
     isSourceEncoding = true

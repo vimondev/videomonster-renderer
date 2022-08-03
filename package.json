@@ -3,6 +3,7 @@
     "dotenv": "^7.0.0",
     "guid": "0.0.12",
     "jimp": "^0.6.1",
+    "sharp": "^0.30.7",
     "simple-git": "^2.34.2",
     "socket.io-client": "^2.2.0",
     "uuid": "^8.3.2"
@@ -10,7 +11,6 @@
   "name": "videomonster-renderer",
   "version": "1.0.0",
   "main": "app.js",
-  "devDependencies": {},
   "scripts": {
     "prestart": "git pull origin master && npm i",
     "start": "node app.js"

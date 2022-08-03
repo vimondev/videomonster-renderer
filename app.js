@@ -19,9 +19,12 @@ function sleep(ms) {
 }
 
 async function func() {
+  const { ERenderStatus, EEncodeStatus } = require('./constants')
+  const path = require('path')
   const fs = require(`fs`)
   const config = require(`./config`)
   const video = require(`./modules/video`)
+  const image = require(`./modules/image`)
   const global = require(`./global`)
   const fsAsync = require(`./modules/fsAsync`)
   const { v4: uuid } = require('uuid')
@@ -155,17 +158,12 @@ async function func() {
   await DeleteMediaCache()
   await global.ClearTask()
 
-  const socket = require(`socket.io-client`)(renderServerIp, {
-    transports: [`websocket`]
-  })
+  // const socket = require(`socket.io-client`)(renderServerIp, {
+  //   transports: [`websocket`]
+  // })
 
-  const ERenderStatus = {
-    NONE: 0,
-    VIDEO: 1,
-    AUDIO: 2,
-    MAKEMP4: 3
-  }
   let renderStatus = 0
+  let encodeStatus = 0
 
   let renderStartedTime = null
 
@@ -175,11 +173,157 @@ async function func() {
   let isAudioRendering = false    // 오디오 렌더링 수행중?
   let isVideoRendering = false    // 비디오 렌더링 수행중?
   let isMerging = false           // 비디오 Merging 수행중?
+  let isSourceEncoding = false    // 유저 소스 인코딩 수행중?
 
-  const rendererid = await CreateAndReadToken()
-  const isStaticMachine = process.env.IS_STATIC_MACHINE === 'true'
+  // const rendererid = await CreateAndReadToken()
+  // const isStaticMachine = process.env.IS_STATIC_MACHINE === 'true'
 
-  console.log(`RendererId(${rendererid}) IsStaticMachine(${isStaticMachine}) TargetServer(${renderServerIp})`)
+  // console.log(`RendererId(${rendererid}) IsStaticMachine(${isStaticMachine}) TargetServer(${renderServerIp})`)
+
+  const testVideoData = {
+    userSourceUploadPath: `/Users/syu/Desktop/Videomonster_Res/_ResourcesByFormat/Video/en_landing_lamp (video-converter.com).avi`,
+    videoPath: `/Users/syu/Desktop/Videomonster_Res/_ResourcesByFormat/Video/en_landing_lamp (video-converter.com)_OPTIM.avi`,
+    videoSmallPath: `/Users/syu/Desktop/Videomonster_Res/_ResourcesByFormat/Video/en_landing_lamp (video-converter.com)_SMALL.avi`,
+    thumbnailPath: `/Users/syu/Desktop/Videomonster_Res/_ResourcesByFormat/Video/en_landing_lamp (video-converter.com)_THUMB.jpg`,
+    encodeStatus: EEncodeStatus.VIDEO
+  }
+  const testImageData = {
+    resolution: { width: 1024, height: 1024 },
+    userSourceUploadPath: `/Users/syu/Desktop/Videomonster_Res/_ResourcesByFormat/Image/20220522_205849.png`,
+    imagePath: `/Users/syu/Desktop/Videomonster_Res/_ResourcesByFormat/Image/20220522_205849_OPTIM.png`,
+    imageSmallPath: `/Users/syu/Desktop/Videomonster_Res/_ResourcesByFormat/Image/20220522_205849_SMALL.png`,
+    encodeStatus: EEncodeStatus.IMAGE
+  }
+
+  await OnVideoSourceEncodeStart(testVideoData)
+  await OnImageSourceEncodeStart(testImageData)
+
+  return
+
+  async function OnVideoSourceEncodeStart (data) {
+    isSourceEncoding = true
+    let {
+      currentGroupKey,
+      rendererIndex,
+
+      sourceId,
+      userId,
+      videoId,
+      fileName,
+      fileType,
+      resolution,
+      originSrcUrl,
+      smallSrcUrl,
+      thumbnailUrl,
+      userSourceUploadPath,
+      videoPath,
+      videoSmallPath,
+      thumbnailPath,
+      meta,
+      encodeStatus: _encodeStatus
+    } = data
+
+    console.log(data)
+
+    try {
+      await global.ClearTask()
+
+      // 업로드된 소스 파일이 존재하는지 검사한다. (10초 내로 찾지 못하면 에러 코드를 전송한다.)
+      for (let i = 0; i < 10; i++) {
+        console.log(`Check userSourceUpload path...(${userSourceUploadPath})`)
+        if (await AccessAsync(userSourceUploadPath)) break
+        await sleep(1000)
+        if (i == 9) throw `ERR_NO_UPLOADED_VIDEO_SOURCE_FILE`
+      }
+
+      encodeStatus = _encodeStatus
+      renderStartedTime = Date.now()
+      
+      console.log(`[ ----- DEBUG ----- ] EncodeToMp4 Start (${videoPath})`)
+      await video.EncodeToMP4(userSourceUploadPath, videoPath)
+      console.log(`[ ----- DEBUG ----- ] EncodeToMp4 Finish`)
+      await video.ResizeMP4WithPath(userSourcePath, videoSmallPath)
+      console.log(`[ ----- DEBUG ----- ] ResizeMP4WithPath Finish (${videoSmallPath})`)
+      await video.Screenshot(userSourcePath, thumbnailPath)
+      console.log(`[ ----- DEBUG ----- ] Screenshot Finish (${thumbnailPath})`)
+
+      // socket.emit(`source_encode_completed`, {
+      //   currentGroupKey,
+      //   errCode: null,
+      // })
+    }
+    catch (e) {
+      console.log(e)
+      // socket.emit(`source_encode_completed`, {
+      //   currentGroupKey,
+      //   errCode: e
+      // })
+    }
+    renderStatus = EEncodeStatus.NONE
+    isSourceEncoding = false
+    renderStartedTime = null
+  }
+
+  async function OnImageSourceEncodeStart (data) {
+    isSourceEncoding = true
+    let {
+      currentGroupKey,
+      rendererIndex,
+
+      sourceId,
+      userId,
+      videoId,
+      fileName,
+      fileType,
+      resolution,
+      userSourcePath,
+      userSourceUploadPath,
+      imagePath,
+      imageSmallPath,
+      meta,
+      encodeStatus: _encodeStatus
+    } = data
+
+    console.log(data)
+
+    try {
+      await global.ClearTask()
+
+      // 업로드된 소스 파일이 존재하는지 검사한다. (10초 내로 찾지 못하면 에러 코드를 전송한다.)
+      for (let i = 0; i < 10; i++) {
+        console.log(`Check userSourceUpload path...(${userSourceUploadPath})`)
+        if (await AccessAsync(userSourceUploadPath)) break
+        await sleep(1000)
+        if (i == 9) throw `ERR_NO_UPLOADED_IMAGE_SOURCE_FILE`
+      }
+
+      encodeStatus = _encodeStatus
+      renderStartedTime = Date.now()
+
+      console.log(`[ ----- DEBUG ----- ] SharpToImage Start (${imagePath})`)
+      const { width: rW, height: rH } = image.CalMinResolution(256, 256, resolution.width, resolution.height)
+      const resize = { width: Math.floor(rW), height: Math.floor(rH) }
+      await image.Optimize(userSourceUploadPath, imagePath)
+      console.log(`[ ----- DEBUG ----- ] SharpToImage Finish`)
+      await image.Optimize(imagePath, imageSmallPath, { resize })
+      console.log(`[ ----- DEBUG ----- ] SharpToImage Small Finish (${imageSmallPath})`)
+
+      // socket.emit(`source_encode_completed`, {
+      //   currentGroupKey,
+      //   errCode: null
+      // })
+    }
+    catch (e) {
+      console.log(e)
+      // socket.emit(`source_encode_completed`, {
+      //   currentGroupKey,
+      //   errCode: e
+      // })
+    }
+    renderStatus = EEncodeStatus.NONE
+    isSourceEncoding = false
+    renderStartedTime = null
+  }
 
   socket.on(`connect`, () => {
       const data = {
@@ -227,6 +371,17 @@ async function func() {
       socket.emit(`video_render_completed`, {
         currentGroupKey,
         errCode: `ERR_VIDEO_RENDER_STOPPED`
+      })
+    }
+  })
+
+  socket.on(`is_stopped_source_encoding`, async data => {
+    const { currentGroupKey } = data
+    console.log(`[ ----- DEBUG ----- ] is_stopped_source_encoding (${isSourceEncoding})`)
+    if (isSourceEncoding == false) {
+      socket.emit('source_encode_completed', {
+        currentGroupKey,
+        errCode: `ERR_SOURCE_ENCODE_STOPPED`
       })
     }
   })
@@ -415,6 +570,9 @@ async function func() {
     isVideoRendering = false
     renderStartedTime = null
   })
+
+  socket.on(`video_source_encode_start`, OnVideoSourceEncodeStart)
+  socket.on(`image_source_encode_start`, OnImageSourceEncodeStart)
 
   // 1초에 한번씩 렌더서버에 진행률을 보고한다.
   function ReportProgress(currentGroupKey, rendererIndex) {

@@ -175,6 +175,11 @@ async function func() {
   let isMerging = false           // 비디오 Merging 수행중?
   let isSourceEncoding = false    // 유저 소스 인코딩 수행중?
 
+  const rendererid = await CreateAndReadToken()
+  const isStaticMachine = process.env.IS_STATIC_MACHINE === 'true'
+
+  console.log(`RendererId(${rendererid}) IsStaticMachine(${isStaticMachine}) TargetServer(${renderServerIp})`)
+
   async function OnVideoSourceEncodeStart (data) {
     isSourceEncoding = true
     let {

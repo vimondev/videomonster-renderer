@@ -217,11 +217,11 @@ async function func() {
 
       const { width: rW, height: rH } = image.CalMinResolution(512, 512, resolution.width, resolution.height)
       const resize = { width: Math.floor(rW), height: Math.floor(rH) }
-      const scaleFactor = Math.min(resize.width / resolution.width, resize.height / resolution.height)
+      const uploadedFilePath = `${userSourceUploadPath}/${fileName}`
       
-      console.log(`[ ----- DEBUG ----- ] EncodeToMp4 Start (${videoFilePath})`)
-      await video.EncodeToMP4(userSourceUploadPath, videoFilePath)
-      console.log(`[ ----- DEBUG ----- ] EncodeToMp4 Finish`)
+      console.log(`[ ----- DEBUG ----- ] EncodeToMp4 Start (${uploadedFilePath})`)
+      await video.EncodeToMP4(uploadedFilePath, videoFilePath)
+      console.log(`[ ----- DEBUG ----- ] EncodeToMp4 Finish (${videoFilePath})`)
       const screenshopFilePath = thumbnailFilePath.replace('THUMB', 'SCREENSHOT')
       await video.Screenshot(userSourceUploadPath, screenshopFilePath)
       await image.Optimize(screenshopFilePath, thumbnailFilePath, { resize })
@@ -280,12 +280,13 @@ async function func() {
       encodeStatus = _encodeStatus
       renderStartedTime = Date.now()
 
-      console.log(`[ ----- DEBUG ----- ] SharpToImage Start (${imageFilePath})`)
       const { width: rW, height: rH } = image.CalMinResolution(512, 512, resolution.width, resolution.height)
       const resize = { width: Math.floor(rW), height: Math.floor(rH) }
+      const uploadedFilePath = `${userSourceUploadPath}/${fileName}`
 
-      await image.Optimize(userSourceUploadPath, imageFilePath)
-      console.log(`[ ----- DEBUG ----- ] SharpToImage Finish`)
+      console.log(`[ ----- DEBUG ----- ] SharpToImage Start (${uploadedFilePath})`)
+      await image.Optimize(uploadedFilePath, imageFilePath)
+      console.log(`[ ----- DEBUG ----- ] SharpToImage Finish (${imageFilePath})`)
       await image.Optimize(imageFilePath, imageSmallFilePath, { resize })
       console.log(`[ ----- DEBUG ----- ] SharpToImage Small Finish (${imageSmallFilePath})`)
 

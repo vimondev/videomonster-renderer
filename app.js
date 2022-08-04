@@ -158,9 +158,9 @@ async function func() {
   await DeleteMediaCache()
   await global.ClearTask()
 
-  // const socket = require(`socket.io-client`)(renderServerIp, {
-  //   transports: [`websocket`]
-  // })
+  const socket = require(`socket.io-client`)(renderServerIp, {
+    transports: [`websocket`]
+  })
 
   let renderStatus = 0
   let encodeStatus = 0

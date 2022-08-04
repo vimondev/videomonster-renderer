@@ -222,10 +222,13 @@ async function func() {
       console.log(`[ ----- DEBUG ----- ] EncodeToMp4 Start (${uploadedFilePath})`)
       await video.EncodeToMP4(uploadedFilePath, videoFilePath)
       console.log(`[ ----- DEBUG ----- ] EncodeToMp4 Finish (${videoFilePath})`)
-      const screenshopFilePath = thumbnailFilePath.replace('THUMB', 'SCREENSHOT')
-      await video.Screenshot(userSourceUploadPath, screenshopFilePath)
-      await image.Optimize(screenshopFilePath, thumbnailFilePath, { resize })
+      const screenshotFilePath = thumbnailFilePath.replace('thumb', 'screenshot')
+      await video.Screenshot(videoFilePath, screenshotFilePath)
+      await image.Optimize(screenshotFilePath, thumbnailFilePath, { resize })
       console.log(`[ ----- DEBUG ----- ] Screenshot Finish (${thumbnailFilePath})`)
+
+      try { fsAsync.UnlinkAsync(screenshotFilePath) }
+      catch (e) { console.log(e) }
 
       socket?.emit(`source_encode_completed`, {
         currentGroupKey,

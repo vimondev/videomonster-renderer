@@ -51,7 +51,7 @@ const ReadDirAsync = (path) => {
         })
     })
 }
-exports.ReadFileAsync = ReadFileAsync
+exports.ReadDirAsync = ReadDirAsync
 
 const RenameAsync = (oldPath, newPath) => {
     return new Promise((resolve, reject) => {

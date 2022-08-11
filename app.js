@@ -219,13 +219,10 @@ async function func() {
       const resize = { width: Math.floor(rW), height: Math.floor(rH) }
       const uploadedFilePath = `${userSourceUploadPath}/${fileName}`
       
-      console.log(`[ ----- DEBUG ----- ] EncodeToMp4 Start (${uploadedFilePath})`)
       await video.EncodeToMP4(uploadedFilePath, videoFilePath)
-      console.log(`[ ----- DEBUG ----- ] EncodeToMp4 Finish (${videoFilePath})`)
       const screenshotFilePath = thumbnailFilePath.replace('thumb', 'screenshot')
       await video.Screenshot(videoFilePath, screenshotFilePath)
       await image.Optimize(screenshotFilePath, thumbnailFilePath, { resize })
-      console.log(`[ ----- DEBUG ----- ] Screenshot Finish (${thumbnailFilePath})`)
 
       try { fsAsync.UnlinkAsync(screenshotFilePath) }
       catch (e) { console.log(e) }
@@ -287,11 +284,8 @@ async function func() {
       const resize = { width: Math.floor(rW), height: Math.floor(rH) }
       const uploadedFilePath = `${userSourceUploadPath}/${fileName}`
 
-      console.log(`[ ----- DEBUG ----- ] SharpToImage Start (${uploadedFilePath})`)
       await image.Optimize(uploadedFilePath, imageFilePath)
-      console.log(`[ ----- DEBUG ----- ] SharpToImage Finish (${imageFilePath})`)
       await image.Optimize(imageFilePath, imageSmallFilePath, { resize })
-      console.log(`[ ----- DEBUG ----- ] SharpToImage Small Finish (${imageSmallFilePath})`)
 
       socket?.emit(`source_encode_completed`, {
         currentGroupKey,
@@ -362,7 +356,6 @@ async function func() {
 
   socket.on(`is_stopped_source_encoding`, async data => {
     const { currentGroupKey } = data
-    console.log(`[ ----- DEBUG ----- ] is_stopped_source_encoding (${isSourceEncoding})`)
     if (isSourceEncoding == false) {
       socket.emit('source_encode_completed', {
         currentGroupKey,

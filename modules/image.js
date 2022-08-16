@@ -149,7 +149,7 @@ exports.Optimize = async (inputFilePath, outputFilePath, options = {
     try {
         const { quality, resize } = options
         const fileName = path.basename(inputFilePath)
-        const _quality = quality ? Number(quality) : 50
+        const _quality = quality ? Number(quality) : 80
         console.time('[ IMAGE SHARP ] ' + fileName)
 
         const originFormat = path.extname(fileName)

@@ -916,7 +916,7 @@ exports.EncodeToMP4 = (inputVideoPath, outputVideoPath) => {
                     `/c`, `ffmpeg`, 
                     `-i`, `${inputVideoPath}`, 
                     `-pix_fmt`, `yuv420p`, 
-                    `-crf`, `30`, 
+                    `-crf`, `23`, 
                     `${outputVideoPath}`, 
                     `-y`
                 ], { cwd: ffmpegPath })

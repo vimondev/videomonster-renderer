@@ -199,7 +199,6 @@ async function func() {
       thumbnailFilePath,
     } = data
 
-    console.log(`[ ----- Debug ----- ] OnVideoSourceEncodeStart START !! - isSourceEncoding(${isSourceEncoding})`)
     console.log(data)
 
     try {
@@ -220,18 +219,13 @@ async function func() {
       const resize = { width: Math.floor(rW), height: Math.floor(rH) }
       const uploadedFilePath = `${userSourceUploadPath}/${fileName}`
       
-      console.log(`[ ----- Debug ----- ] VIDEO EncodeToMP4 Start! (${fileName})`)
       await video.EncodeToMP4(uploadedFilePath, videoFilePath)
       const screenshotFilePath = thumbnailFilePath.replace('thumb', 'screenshot')
-      console.log(`[ ----- Debug ----- ] VIDEO Optimize Ended (${fileName})`)
       await video.Screenshot(videoFilePath, screenshotFilePath)
-      console.log(`[ ----- Debug ----- ] VIDEO Screenshot Ended (${fileName})`)
       await image.Optimize(screenshotFilePath, thumbnailFilePath, { resize })
-      console.log(`[ ----- Debug ----- ] VIDEO Optimize Ended (${fileName})`)
 
       try { fsAsync.UnlinkAsync(screenshotFilePath) }
       catch (e) { console.log(e) }
-      console.log(`[ ----- Debug ----- ] VIDEO Unlink ScreenshotFile Ended (${fileName})`)
 
       socket?.emit(`source_encode_completed`, {
         currentGroupKey,
@@ -248,7 +242,6 @@ async function func() {
     renderStatus = EEncodeStatus.NONE
     isSourceEncoding = false
     renderStartedTime = null
-    console.log(`[ ----- Debug ----- ] OnVideoSourceEncodeStart END - renderStatus(${renderStatus}) isSourceEncoding(${isSourceEncoding})`)
   }
 
   async function OnImageSourceEncodeStart (data) {
@@ -271,7 +264,6 @@ async function func() {
       imageSmallFilePath
     } = data
 
-    console.log(`[ ----- Debug ----- ] OnImageSourceEncodeStart START !! - isSourceEncoding(${isSourceEncoding})`)
     console.log(data)
 
     try {
@@ -292,11 +284,8 @@ async function func() {
       const resize = { width: Math.floor(rW), height: Math.floor(rH) }
       const uploadedFilePath = `${userSourceUploadPath}/${fileName}`
 
-      console.log(`[ ----- Debug ----- ] IMAGE Optimize Start!`)
       await image.Optimize(uploadedFilePath, imageFilePath)
-      console.log(`[ ----- Debug ----- ] IMAGE uploadedfile Optimize End!`)
       await image.Optimize(imageFilePath, imageSmallFilePath, { resize })
-      console.log(`[ ----- Debug ----- ] IMAGE imageFilePath Optimize End!`)
 
       socket?.emit(`source_encode_completed`, {
         currentGroupKey,
@@ -313,7 +302,6 @@ async function func() {
     renderStatus = EEncodeStatus.NONE
     isSourceEncoding = false
     renderStartedTime = null
-    console.log(`[ ----- Debug ----- ] OnImageSourceEncodeStart END - renderStatus(${renderStatus}) isSourceEncoding(${isSourceEncoding})`)
   }
 
   socket.on(`connect`, () => {

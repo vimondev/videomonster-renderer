@@ -227,14 +227,14 @@ async function func() {
       try { fsAsync.UnlinkAsync(screenshotFilePath) }
       catch (e) { console.log(e) }
 
-      socket?.emit(`source_encode_completed`, {
+      socket.emit(`source_encode_completed`, {
         currentGroupKey,
         errCode: null,
       })
     }
     catch (e) {
       console.log(e)
-      socket?.emit(`source_encode_completed`, {
+      socket.emit(`source_encode_completed`, {
         currentGroupKey,
         errCode: e
       })

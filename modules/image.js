@@ -5,6 +5,9 @@ const {
     localPath,
     aerenderPath
 } = config
+const path = require('path')
+const sharp = require('sharp')
+sharp.cache(false)
 
 exports.ImageRender = (aepPath, imageList) => {
     return new Promise((resolve, reject) => {
@@ -100,4 +103,105 @@ exports.ConvertTIFFToPng = (imagePath, imageList) => {
             reject(`ERR_IMAGE_RENDER_FAILED (이미지 렌더링 실패)`)
         }
     })
+}
+
+/**
+ * 기준 해상도에 맞춰 가로/세로 비율을 유지한 최소 사이즈를 계산하는 함수
+ * @param {Number} standardWidth 기준 가로
+ * @param {Number} standardHeight 기준 세로
+ * @param {Number} originWidth 원본 가로
+ * @param {Number} originHeight 원본 세로
+ * @returns 
+ */
+exports.CalMinResolution = (standardWidth, standardHeight, originWidth, originHeight) => {
+    let width = standardWidth;
+    let height = standardHeight;
+
+    const originRatio = originHeight / originWidth;
+    const standardRatio = standardHeight / standardWidth;
+    if (originRatio > standardRatio) {
+        // 가로가 더 긴 경우
+        height = originHeight * (standardWidth / originWidth);
+    }
+    else if (originRatio < standardRatio) {
+        // 세로가 더 긴 경우
+        width = originWidth * (standardHeight / originHeight);
+    }
+    return { width, height };
+}
+
+/**
+ * 이미지를 최적화 해주는 함수
+ * @param {string} inputFilePath 
+ * @param {string} outputFilePath 
+ * @param {{
+ *  quality: Number
+ *  resize: {
+ *      width: Number
+ *      height: Number 
+ *  } | null
+ * }} options 
+ */
+exports.Optimize = async (inputFilePath, outputFilePath, options = { 
+    quality: null,
+    resize: null
+}) => {
+    try {
+        const { quality, resize } = options
+        const fileName = path.basename(inputFilePath)
+        const _quality = quality ? Number(quality) : 80
+        console.time('[ IMAGE SHARP ] ' + fileName)
+
+        const originFormat = path.extname(fileName)
+
+        const image = sharp(inputFilePath)
+        image.on('error', (e) => { console.log(e) })
+    
+        const { width, height } = await image.metadata()
+        const size = { width, height }
+        console.log({ label: "Origin-Size", width, height, name: fileName })
+        if (resize && resize.width && resize.height) {
+            size.width = resize.width
+            size.height = resize.height
+        }
+        console.log({ label: "Re-Size", ...size, name: fileName })
+
+        if (originFormat === '.jpg' | originFormat === '.jpeg') {
+            await image
+            .withMetadata()
+            .rotate()
+            .resize(size)
+            .jpeg({ quality: _quality })
+            .toFile(outputFilePath)
+        }
+        else {
+            await image
+                .withMetadata()
+                .rotate()
+                .resize(size)
+                .png({ quality: _quality })
+                .toFile(outputFilePath)
+        }
+
+        // await image
+        //     .withMetadata()
+        //     .rotate()
+        //     .resize(resize)
+        //     .webp({ quality })
+        //     .toFile(basepath + fileName.replace(originFormat, '_comp.webp'))
+
+        // await image
+        //     .withMetadata()
+        //     .rotate()
+        //     .resize(resize)
+        //     .tiff({ quality })
+        //     .toFile(basepath + fileName.replace(originFormat, '_comp.tiff'))
+    
+        image.destroy()  
+
+        console.timeEnd('[ IMAGE SHARP ] ' + fileName)
+    }
+    catch (e) {
+        console.log(e)
+    }
 }

@@ -317,9 +317,14 @@ exports.Merge = (rendererCount, videoPath) => {
             console.log(`Merge Start!`)
 
             // merge 정보 txt 파일을 생성해준다.
+            const fileList = await fsAsync.ReadDirAsync(videoPath)
+            const fileRegex = new RegExp('out.*[0-9]\.mp4')
             let fileBody = ``
-            for (let i = 0; i < rendererCount; i++) {
-                fileBody += `file out${i}.mp4\n`
+            for (let i = 0; i < fileList.length; i++) {
+                const fileName = fileList[i]
+                if (fileRegex.test(fileName)) {
+                    fileBody += `file ${fileName}\n`
+                }
             }
 
             await retry(WriteFileAsync(`${videoPath}/file.txt`, fileBody))
@@ -842,14 +847,10 @@ exports.PutWatermark = (videoPath, inputFilePath, outputFilePath, watermarkFileN
     })
 }
 
-// resize
-exports.ResizeMP4 = (videoPath, width, height, scaleFactor) => {
+const _ResizeMP4 = (inputFilePath, outputFilePath, width, height, scaleFactor) => {
     return new Promise((resolve, reject) => {
         try {
             console.log(`ResizeMP4 Start!`)
-
-            const index = videoPath.indexOf('.mp4')
-            const resizedVideoPath = `${videoPath.slice(0, index)}_small.mp4`
 
             width = Math.floor(width * scaleFactor)
             height = Math.floor(height * scaleFactor)
@@ -858,7 +859,7 @@ exports.ResizeMP4 = (videoPath, width, height, scaleFactor) => {
             if (height % 2 === 1) height -= 1
             
             const spawn = require(`child_process`).spawn,
-                ls = spawn(`cmd`, [`/c`, `ffmpeg`, `-i`, `${videoPath}`, `-vf`, `scale=${width}:${height}`, `-crf`, `30`, `${resizedVideoPath}`, `-y`], { cwd: ffmpegPath })
+                ls = spawn(`cmd`, [`/c`, `ffmpeg`, `-i`, `${inputFilePath}`, `-vf`, `scale=${width}:${height}`, `-crf`, `30`, `${outputFilePath}`, `-y`], { cwd: ffmpegPath })
 
             // 프로세스 수행 중 print 이벤트 발생 시 콜백
             ls.stdout.on('data', function (data) {
@@ -876,7 +877,7 @@ exports.ResizeMP4 = (videoPath, width, height, scaleFactor) => {
                     await sleep(1000)
 
                     // 출력된 mp4 파일이 존재하지 않으면 실패
-                    if (!(await retryBoolean(AccessAsync(resizedVideoPath)))) {
+                    if (!(await retryBoolean(AccessAsync(outputFilePath)))) {
                         return reject(`ERR_RESIZED_MP4_NOT_EXIST`)
                     }
                     else {
@@ -895,3 +896,116 @@ exports.ResizeMP4 = (videoPath, width, height, scaleFactor) => {
         }
     })
 }
+
+// resize
+exports.ResizeMP4 = (videoPath, width, height, scaleFactor) => {
+    const index = videoPath.indexOf('.mp4')
+    const resizedVideoPath = `${videoPath.slice(0, index)}_small.mp4`
+    return _ResizeMP4(videoPath, resizedVideoPath, width, height, scaleFactor)
+}
+
+exports.ResizeMP4WithPath = _ResizeMP4
+
+exports.EncodeToMP4 = (inputVideoPath, outputVideoPath) => {
+    return new Promise((resolve, reject) => {
+        try {
+            console.log(`EncodeToMP4 Start!`)
+
+            const spawn = require(`child_process`).spawn,
+                ls = spawn(`cmd`, [
+                    `/c`, `ffmpeg`, 
+                    `-i`, `${inputVideoPath}`, 
+                    `-pix_fmt`, `yuv420p`, 
+                    `-crf`, `26`,
+                    `-preset`, `veryfast`,
+                    `${outputVideoPath}`, 
+                    `-y`
+                ], { cwd: ffmpegPath })
+
+            // 프로세스 수행 중 print 이벤트 발생 시 콜백
+            ls.stdout.on('data', function (data) {
+                console.log('stdout: ' + data)
+            })
+
+            ls.stderr.on('data', function (data) {
+                console.log('stderr: ' + data)
+            })
+
+            ls.on('exit', async function (code) {
+                console.log('child process exited with code ' + code)
+
+                try {
+                    await sleep(1000)
+
+                    // 출력된 mp4 파일이 존재하지 않으면 실패
+                    if (!(await retryBoolean(AccessAsync(outputVideoPath)))) {
+                        return reject(`ERR_RESIZED_MP4_NOT_EXIST`)
+                    }
+                    else {
+                        return resolve()
+                    }
+                }
+                catch (e) {
+                    console.log(e)
+                    reject(`ERR_RESIZE_MP4_FAILED`)
+                }
+            })
+        }
+        catch (e) {
+            console.log(e)
+            reject(`ERR_ENCODING_TO_MP4_FAILED`)
+        }
+    })
+}
+
+exports.Screenshot = (inputFilePath, outputFilePath) => {
+    return new Promise((resolve, reject) => {
+        try {
+            console.log(`Screenshot Start!`)
+
+            const spawn = require(`child_process`).spawn,
+                ls = spawn(`cmd`, [
+                    `/c`, `ffmpeg`, 
+                    `-i`, `${inputFilePath}`, 
+                    `-ss`, `00:00:00`, 
+                    `-vframes`, `1`, 
+                    `${outputFilePath}`, 
+                    `-y`
+                ], { cwd: ffmpegPath })
+
+            // 프로세스 수행 중 print 이벤트 발생 시 콜백
+            ls.stdout.on('data', function (data) {
+                console.log('stdout: ' + data)
+            })
+
+            ls.stderr.on('data', function (data) {
+                console.log('stderr: ' + data)
+            })
+
+            ls.on('exit', async function (code) {
+                console.log('child process exited with code ' + code)
+
+                try {
+                    await sleep(1000)
+
+                    // 출력된 mp4 파일이 존재하지 않으면 실패
+                    if (!(await retryBoolean(AccessAsync(outputFilePath)))) {
+                        return reject(`ERR_SCREENSHOT_NOT_EXIST`)
+                    }
+                    else {
+                        return resolve()
+                    }
+                }
+                catch (e) {
+                    console.log(e)
+                    reject(`ERR_SCREENSHOT_FAILED`)
+                }
+            })
+        }
+        catch (e) {
+            console.log(e)
+            reject(`ERR_ENCODING_TO_MP4_FAILED`)
+        }
+    });
+}
+

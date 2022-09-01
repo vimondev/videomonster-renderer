@@ -19,9 +19,12 @@ function sleep(ms) {
 }
 
 async function func() {
+  const { ERenderStatus, EEncodeStatus } = require('./constants')
+  const path = require('path')
   const fs = require(`fs`)
   const config = require(`./config`)
   const video = require(`./modules/video`)
+  const image = require(`./modules/image`)
   const global = require(`./global`)
   const fsAsync = require(`./modules/fsAsync`)
   const { v4: uuid } = require('uuid')
@@ -159,13 +162,8 @@ async function func() {
     transports: [`websocket`]
   })
 
-  const ERenderStatus = {
-    NONE: 0,
-    VIDEO: 1,
-    AUDIO: 2,
-    MAKEMP4: 3
-  }
   let renderStatus = 0
+  let encodeStatus = 0
 
   let renderStartedTime = null
 
@@ -175,11 +173,136 @@ async function func() {
   let isAudioRendering = false    // 오디오 렌더링 수행중?
   let isVideoRendering = false    // 비디오 렌더링 수행중?
   let isMerging = false           // 비디오 Merging 수행중?
+  let isSourceEncoding = false    // 유저 소스 인코딩 수행중?
 
   const rendererid = await CreateAndReadToken()
   const isStaticMachine = process.env.IS_STATIC_MACHINE === 'true'
 
   console.log(`RendererId(${rendererid}) IsStaticMachine(${isStaticMachine}) TargetServer(${renderServerIp})`)
+
+  async function OnVideoSourceEncodeStart (data) {
+    isSourceEncoding = true
+    let {
+      currentGroupKey,
+
+      sourceId,
+      userId,
+      videoId,
+      fileName,
+      fileType,
+      resolution,
+      userSourceUploadPath,
+      meta,
+
+      encodeStatus: _encodeStatus,
+      videoFilePath,
+      thumbnailFilePath,
+    } = data
+
+    console.log(data)
+
+    try {
+      await global.ClearTask()
+
+      // 업로드된 소스 파일이 존재하는지 검사한다. (10초 내로 찾지 못하면 에러 코드를 전송한다.)
+      for (let i = 0; i < 10; i++) {
+        console.log(`Check userSourceUpload path...(${userSourceUploadPath})`)
+        if (await AccessAsync(userSourceUploadPath)) break
+        await sleep(1000)
+        if (i == 9) throw `ERR_NO_UPLOADED_VIDEO_SOURCE_FILE`
+      }
+
+      encodeStatus = _encodeStatus
+      renderStartedTime = Date.now()
+
+      const { width: rW, height: rH } = image.CalMinResolution(512, 512, resolution.width, resolution.height)
+      const resize = { width: Math.floor(rW), height: Math.floor(rH) }
+      const uploadedFilePath = `${userSourceUploadPath}/${fileName}`
+      
+      await video.EncodeToMP4(uploadedFilePath, videoFilePath)
+      const screenshotFilePath = thumbnailFilePath.replace('thumb', 'screenshot')
+      await video.Screenshot(videoFilePath, screenshotFilePath)
+      await image.Optimize(screenshotFilePath, thumbnailFilePath, { resize })
+
+      try { fsAsync.UnlinkAsync(screenshotFilePath) }
+      catch (e) { console.log(e) }
+
+      socket?.emit(`source_encode_completed`, {
+        currentGroupKey,
+        errCode: null,
+      })
+    }
+    catch (e) {
+      console.log(e)
+      socket?.emit(`source_encode_completed`, {
+        currentGroupKey,
+        errCode: e
+      })
+    }
+    renderStatus = EEncodeStatus.NONE
+    isSourceEncoding = false
+    renderStartedTime = null
+  }
+
+  async function OnImageSourceEncodeStart (data) {
+    isSourceEncoding = true
+    let {
+      currentGroupKey,
+
+      sourceId,
+      userId,
+      videoId,
+      fileName,
+      fileType,
+      resolution,
+      userSourcePath,
+      userSourceUploadPath,
+      meta,
+
+      encodeStatus: _encodeStatus,
+      imageFilePath,
+      imageSmallFilePath
+    } = data
+
+    console.log(data)
+
+    try {
+      await global.ClearTask()
+
+      // 업로드된 소스 파일이 존재하는지 검사한다. (10초 내로 찾지 못하면 에러 코드를 전송한다.)
+      for (let i = 0; i < 10; i++) {
+        console.log(`Check userSourceUpload path...(${userSourceUploadPath})`)
+        if (await AccessAsync(userSourceUploadPath)) break
+        await sleep(1000)
+        if (i == 9) throw `ERR_NO_UPLOADED_IMAGE_SOURCE_FILE`
+      }
+
+      encodeStatus = _encodeStatus
+      renderStartedTime = Date.now()
+
+      const { width: rW, height: rH } = image.CalMinResolution(512, 512, resolution.width, resolution.height)
+      const resize = { width: Math.floor(rW), height: Math.floor(rH) }
+      const uploadedFilePath = `${userSourceUploadPath}/${fileName}`
+
+      await image.Optimize(uploadedFilePath, imageFilePath)
+      await image.Optimize(imageFilePath, imageSmallFilePath, { resize })
+
+      socket?.emit(`source_encode_completed`, {
+        currentGroupKey,
+        errCode: null
+      })
+    }
+    catch (e) {
+      console.log(e)
+      socket?.emit(`source_encode_completed`, {
+        currentGroupKey,
+        errCode: e
+      })
+    }
+    renderStatus = EEncodeStatus.NONE
+    isSourceEncoding = false
+    renderStartedTime = null
+  }
 
   socket.on(`connect`, () => {
       const data = {
@@ -231,6 +354,16 @@ async function func() {
     }
   })
 
+  socket.on(`is_stopped_source_encoding`, async data => {
+    const { currentGroupKey } = data
+    if (isSourceEncoding == false) {
+      socket.emit('source_encode_completed', {
+        currentGroupKey,
+        errCode: `ERR_SOURCE_ENCODE_STOPPED`
+      })
+    }
+  })
+
   // Video Merging 수행 여부 확인
   socket.on(`is_stopped_merging`, async data => {
     const { currentGroupKey } = data
@@ -247,6 +380,7 @@ async function func() {
     isTemplateConfirmRendering = true
     let {
       currentGroupKey,
+      rendererIndex,
 
       aepPath,
       audioPath,
@@ -282,7 +416,7 @@ async function func() {
       video.ResetTotalRenderedFrameCount()
       renderStatus = ERenderStatus.AUDIO
       renderStartedTime = Date.now()
-      ReportProgress(currentGroupKey, 0)
+      ReportProgress(currentGroupKey, rendererIndex)
 
       // 폰트 설치
       if (await fsAsync.IsExistAsync(config.fontPath)) {
@@ -296,7 +430,7 @@ async function func() {
 
       // 비디오 렌더링 (모든 프레임을 TIFF 파일로 전부 뽑아낸다.)
       renderStatus = ERenderStatus.VIDEO
-      const res = await video.VideoRender(0, aepPath, startFrame, endFrame, hashTagString)
+      const res = await video.VideoRender(rendererIndex, aepPath, startFrame, endFrame, hashTagString)
 
       // 각 Frame별 렌더링 시간을 계산한다.
       const frameDuration = {}
@@ -314,7 +448,8 @@ async function func() {
 
       // 모든 TIFF 파일을 취합하여 h264로 인코딩한다.
       renderStatus = ERenderStatus.MAKEMP4
-      await video.MakeMP4(0, videoPath, hashTagString, frameRate)
+      await video.MakeMP4(rendererIndex, videoPath, hashTagString, frameRate)
+
 
       // Merge를 수행한다. (Template Confirm Rendering은 렌더러를 1개만 사용하므로 Merge는 별로 의미가 없음.)
       await video.Merge(1, videoPath)
@@ -413,6 +548,9 @@ async function func() {
     isVideoRendering = false
     renderStartedTime = null
   })
+
+  socket.on(`video_source_encode_start`, OnVideoSourceEncodeStart)
+  socket.on(`image_source_encode_start`, OnImageSourceEncodeStart)
 
   // 1초에 한번씩 렌더서버에 진행률을 보고한다.
   function ReportProgress(currentGroupKey, rendererIndex) {

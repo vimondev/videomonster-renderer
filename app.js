@@ -287,14 +287,14 @@ async function func() {
       await image.Optimize(uploadedFilePath, imageFilePath)
       await image.Optimize(imageFilePath, imageSmallFilePath, { resize })
 
-      socket?.emit(`source_encode_completed`, {
+      socket.emit(`source_encode_completed`, {
         currentGroupKey,
         errCode: null
       })
     }
     catch (e) {
       console.log(e)
-      socket?.emit(`source_encode_completed`, {
+      socket.emit(`source_encode_completed`, {
         currentGroupKey,
         errCode: e
       })

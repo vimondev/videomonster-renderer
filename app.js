@@ -180,6 +180,57 @@ async function func() {
 
   console.log(`RendererId(${rendererid}) IsStaticMachine(${isStaticMachine}) TargetServer(${renderServerIp})`)
 
+  async function OnGifRenderStart (data) {
+    isVideoRendering = true
+    let {
+      currentGroupKey,
+      rendererIndex,
+
+      videoFilePath,
+      meta,
+    } = data
+
+    console.log(data)
+
+    try {
+      await global.ClearTask()
+
+      if (!(await AccessAsync(videoFilePath))) throw `ERR_NO_VIDEO_FILE`
+      if (!meta || 
+          !meta.cafe24 || 
+          !meta.cafe24.duration || 
+          !meta.cafe24.startPoint) throw `ERR_INVALIDE_META_DATA`
+
+      // Rendered Frame Count 0으로 초기화 (렌더링 진행률 보고)
+      video.ResetTotalRenderedFrameCount()
+      renderStatus = ERenderStatus.GIF
+      renderStartedTime = Date.now()
+      ReportProgress(currentGroupKey, rendererIndex)
+
+      const duration = Number(meta.cafe24.duration)
+      const startTimeSec = Number(meta.cafe24.startPoint)
+      const scaleWidth = meta.cafe24.scaleWidth ? meta.cafe24.scaleWidth : 'iw/3'
+      const scaleHeight = meta.cafe24.scaleHeight ? meta.cafe24.scaleHeight : 'ih/3'
+
+      await video.ExportGif(videoFilePath, duration, startTimeSec, scaleWidth, scaleHeight)
+
+      socket.emit(`gif_render_completed`, {
+        currentGroupKey,
+        errCode: null
+      })
+    }
+    catch (e) {
+      console.log(e)
+      socket.emit(`gif_render_completed`, {
+        currentGroupKey,
+        errCode: e
+      })
+    }
+    renderStatus = ERenderStatus.NONE
+    isVideoRendering = false
+    renderStartedTime = null
+  }
+
   async function OnVideoSourceEncodeStart (data) {
     isSourceEncoding = true
     let {
@@ -549,6 +600,7 @@ async function func() {
     renderStartedTime = null
   })
 
+  socket.on(`gif_render_start`, OnGifRenderStart)
   socket.on(`video_source_encode_start`, OnVideoSourceEncodeStart)
   socket.on(`image_source_encode_start`, OnImageSourceEncodeStart)
 

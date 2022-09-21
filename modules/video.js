@@ -235,6 +235,66 @@ exports.VideoRender = (rendererIndex, aepPath, startFrame, endFrame, hashTagStri
     })
 }
 
+// 영상 파일에서 일부 영역을 gif로 추출
+exports.ExportGif = (videoFilePath, duration, startTimeSec = 0, scaleWidth = 800, scaleHeight = -1, frameRate = 10, loop = 0) => {
+    return new Promise((resolve, reject) => {
+        try {
+            const outputFilePath = `${localPath}/result.gif`
+            const startTime = new Date(-(1000 * 60 * 60 * 9) + (1000 * startTimeSec)).toTimeString().split(" ")[0];
+            console.log(`ExportGif Start! ${startTime} + ${duration}/s`)
+
+            // ffmpeg -i result.mp4 -ss 0:00:01 -t 3 -r 8 -vf scale=1200:-1 -loop 0 output.gif
+            const spawn = require(`child_process`).spawn,
+                ls = spawn(`cmd`, [
+                    `/c`, `ffmpeg`,
+                    `-i`, `${videoFilePath}`,
+                    `-ss`, `${startTime}`,
+                    `-t`, `${duration}`,
+                    `-r`, `${frameRate}`,
+                    `-vf`, `scale=${scaleWidth}:${scaleHeight}`,
+                    `-loop`, `${loop}`,
+                    outputFilePath, 
+                    `-y`,
+                    ], {
+                    cwd: ffmpegPath
+                })
+
+            // 프로세스 수행 중 print 이벤트 발생 시 콜백
+            ls.stdout.on('data', function (data) {
+                console.log('[ExportGif] stdout: ' + data)
+            })
+
+            ls.stderr.on('data', function (data) {
+                console.log('[ExportGif] stderr: ' + data)
+            })
+
+            ls.on('exit', async function (code) {
+                console.log('child process(ExportGif) exited with code ' + code)
+
+                try {
+                    await sleep(1000)
+
+                    // 출력된 gif 파일이 존재하지 않으면 실패
+                    if (!(await retryBoolean(AccessAsync(outputFilePath)))) {
+                        return reject(`ERR_EXPORT_GIF_FAILED (렌더링된 GIF 출력 파일 없음)`)
+                    }
+                    else {
+                        return resolve()
+                    }
+                }
+                catch (e) {
+                    console.log(e)
+                    reject(`ERR_EXPORT_GIF_FAILED (비디오 렌더러 GIF 렌더링 실패 - 2)`)
+                }
+            })
+        }
+        catch (e) {
+            console.log(e)
+            reject(`ERR_EXPORT_GIF_FAILED (비디오 렌더러 GIF 렌더링 실패 - 1)`)
+        }
+    })
+}
+
 // TIFF -> h264 인코딩
 exports.MakeMP4 = (rendererIndex, videoPath, hashTagString, frameRate) => {
     return new Promise((resolve, reject) => {
@@ -271,7 +331,7 @@ exports.MakeMP4 = (rendererIndex, videoPath, hashTagString, frameRate) => {
             })
 
             ls.on('exit', async function (code) {
-                console.log('child process exited with code ' + code)
+                console.log('child process(MakeMP4) exited with code ' + code)
 
                 try {
                     await sleep(1000)

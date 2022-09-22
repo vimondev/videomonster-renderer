@@ -44,6 +44,7 @@ async function func() {
           return 'http://vmclientstagenew.koreacentral.cloudapp.azure.com:3000'
           // return 'http://10.0.0.7:3000'
         case 'dev':
+        case 'feat/gif-render':
           // if (isStaticMachine)
           return 'http://videomonster.iptime.org:3000'
           // return 'http://10.0.0.19:3000'

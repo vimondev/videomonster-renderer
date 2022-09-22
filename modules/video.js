@@ -236,10 +236,10 @@ exports.VideoRender = (rendererIndex, aepPath, startFrame, endFrame, hashTagStri
 }
 
 // 영상 파일에서 일부 영역을 gif로 추출
-exports.ExportGif = (videoFilePath, duration, startTimeSec = 0, scaleWidth = 800, scaleHeight = -1, frameRate = 10, loop = 0) => {
+exports.ExportGif = (videoFilePath, outputPath, duration, startTimeSec = 0, scaleWidth = 800, scaleHeight = -1, frameRate = 10, loop = 0) => {
     return new Promise((resolve, reject) => {
         try {
-            const outputFilePath = `${localPath}/result.gif`
+            const outputFilePath = `${outputPath}/result.gif`
             const startTime = new Date(-(1000 * 60 * 60 * 9) + (1000 * startTimeSec)).toTimeString().split(" ")[0];
             console.log(`ExportGif Start! ${startTime} + ${duration}/s`)
 

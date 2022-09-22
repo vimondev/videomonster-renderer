@@ -212,8 +212,9 @@ async function func() {
       const startTimeSec = Number(meta.gif.startPoint)
       const scaleWidth = meta.gif.scaleWidth ? meta.gif.scaleWidth : 'iw/3'
       const scaleHeight = meta.gif.scaleHeight ? meta.gif.scaleHeight : 'ih/3'
+      const outputPath = path.dirname(videoFilePath)
 
-      await video.ExportGif(videoFilePath, duration, startTimeSec, scaleWidth, scaleHeight)
+      await video.ExportGif(videoFilePath, outputPath, duration, startTimeSec, scaleWidth, scaleHeight)
 
       socket.emit(`gif_render_completed`, {
         currentGroupKey,

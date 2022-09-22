@@ -198,9 +198,9 @@ async function func() {
 
       if (!(await AccessAsync(videoFilePath))) throw `ERR_NO_VIDEO_FILE`
       if (!meta || 
-          !meta.cafe24 || 
-          !meta.cafe24.duration || 
-          !meta.cafe24.startPoint) throw `ERR_INVALIDE_META_DATA`
+          !meta.gif || 
+          !meta.gif.duration || 
+          !meta.gif.startPoint) throw `ERR_INVALIDE_META_DATA`
 
       // Rendered Frame Count 0으로 초기화 (렌더링 진행률 보고)
       video.ResetTotalRenderedFrameCount()
@@ -208,10 +208,10 @@ async function func() {
       renderStartedTime = Date.now()
       ReportProgress(currentGroupKey, rendererIndex)
 
-      const duration = Number(meta.cafe24.duration)
-      const startTimeSec = Number(meta.cafe24.startPoint)
-      const scaleWidth = meta.cafe24.scaleWidth ? meta.cafe24.scaleWidth : 'iw/3'
-      const scaleHeight = meta.cafe24.scaleHeight ? meta.cafe24.scaleHeight : 'ih/3'
+      const duration = Number(meta.gif.duration)
+      const startTimeSec = Number(meta.gif.startPoint)
+      const scaleWidth = meta.gif.scaleWidth ? meta.gif.scaleWidth : 'iw/3'
+      const scaleHeight = meta.gif.scaleHeight ? meta.gif.scaleHeight : 'ih/3'
 
       await video.ExportGif(videoFilePath, duration, startTimeSec, scaleWidth, scaleHeight)
 

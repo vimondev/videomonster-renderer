@@ -197,10 +197,7 @@ async function func() {
       await global.ClearTask()
 
       if (!(await AccessAsync(videoFilePath))) throw `ERR_NO_VIDEO_FILE`
-      if (!meta || 
-          !meta.gif || 
-          !meta.gif.duration || 
-          !meta.gif.startPoint) throw `ERR_INVALIDE_META_DATA`
+      if (!meta || !meta.gif) throw `ERR_INVALIDE_META_DATA`
 
       // Rendered Frame Count 0으로 초기화 (렌더링 진행률 보고)
       video.ResetTotalRenderedFrameCount()

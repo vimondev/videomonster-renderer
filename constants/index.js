@@ -2,7 +2,8 @@ exports.ERenderStatus = {
     NONE: 0,
     VIDEO: 1,
     AUDIO: 2,
-    MAKEMP4: 3
+    MAKEMP4: 3,
+    GIF: 4,
 }
 
 exports.EEncodeStatus = {

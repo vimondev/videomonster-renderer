@@ -180,6 +180,56 @@ async function func() {
 
   console.log(`RendererId(${rendererid}) IsStaticMachine(${isStaticMachine}) TargetServer(${renderServerIp})`)
 
+  async function OnGifRenderStart (data) {
+    isVideoRendering = true
+    let {
+      currentGroupKey,
+      rendererIndex,
+
+      videoFilePath,
+      meta,
+    } = data
+
+    console.log(data)
+
+    try {
+      await global.ClearTask()
+
+      if (!(await AccessAsync(videoFilePath))) throw `ERR_NO_VIDEO_FILE`
+      if (!meta || !meta.gif) throw `ERR_INVALIDE_META_DATA`
+
+      // Rendered Frame Count 0으로 초기화 (렌더링 진행률 보고)
+      video.ResetTotalRenderedFrameCount()
+      renderStatus = ERenderStatus.GIF
+      renderStartedTime = Date.now()
+      ReportProgress(currentGroupKey, rendererIndex)
+
+      const duration = Number(meta.gif.duration)
+      const startTimeSec = Number(meta.gif.startPoint)
+      const scaleWidth = meta.gif.scaleWidth ? meta.gif.scaleWidth : 'iw/2'
+      const scaleHeight = meta.gif.scaleHeight ? meta.gif.scaleHeight : 'ih/2'
+      const outputPath = path.dirname(videoFilePath)
+      const frameRate = meta.gif.frameRate ? Number(meta.gif.frameRate) : 12
+
+      await video.ExportGif(videoFilePath, outputPath, duration, startTimeSec, scaleWidth, scaleHeight, frameRate)
+
+      socket.emit(`gif_render_completed`, {
+        currentGroupKey,
+        errCode: null
+      })
+    }
+    catch (e) {
+      console.log(e)
+      socket.emit(`gif_render_completed`, {
+        currentGroupKey,
+        errCode: e
+      })
+    }
+    renderStatus = ERenderStatus.NONE
+    isVideoRendering = false
+    renderStartedTime = null
+  }
+
   async function OnVideoSourceEncodeStart (data) {
     isSourceEncoding = true
     let {
@@ -549,6 +599,7 @@ async function func() {
     renderStartedTime = null
   })
 
+  socket.on(`gif_render_start`, OnGifRenderStart)
   socket.on(`video_source_encode_start`, OnVideoSourceEncodeStart)
   socket.on(`image_source_encode_start`, OnImageSourceEncodeStart)
 

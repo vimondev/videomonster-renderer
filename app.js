@@ -41,7 +41,7 @@ async function func() {
         case 'master':
           // if (isStaticMachine)
           if (region === 'US') return 'http://vmclientusstage.eastus.cloudapp.azure.com:3000'
-          return 'http://vmclientstagenew.koreacentral.cloudapp.azure.com:3000'
+          return 'http://vmstage2023.koreacentral.cloudapp.azure.com:3000'
           // return 'http://10.0.0.7:3000'
         case 'dev':
           // if (isStaticMachine)
@@ -543,8 +543,10 @@ async function func() {
       frameRate,
       hashTagString,
 
-      installFontMap
+      installFontMap,
     } = data
+    const videoOptions = data.videoOptions ?? {}
+    const outputVideoFactor = videoOptions.outputVideoFactor;
 
     console.log(data)
 
@@ -580,7 +582,7 @@ async function func() {
 
       // 렌더링한 TIFF 파일들을 취합하여 h264로 인코딩한다.
       renderStatus = ERenderStatus.MAKEMP4
-      await video.MakeMP4(rendererIndex, videoPath, hashTagString, frameRate)
+      await video.MakeMP4(rendererIndex, videoPath, hashTagString, frameRate, outputVideoFactor)
 
       socket.emit(`video_render_completed`, {
         currentGroupKey,

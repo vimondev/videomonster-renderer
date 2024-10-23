@@ -543,8 +543,10 @@ async function func() {
       frameRate,
       hashTagString,
 
-      installFontMap
+      installFontMap,
     } = data
+    const videoOptions = data.videoOptions ?? {}
+    const scaleFactor = videoOptions.scaleFactor;
 
     console.log(data)
 
@@ -580,7 +582,7 @@ async function func() {
 
       // 렌더링한 TIFF 파일들을 취합하여 h264로 인코딩한다.
       renderStatus = ERenderStatus.MAKEMP4
-      await video.MakeMP4(rendererIndex, videoPath, hashTagString, frameRate)
+      await video.MakeMP4(rendererIndex, videoPath, hashTagString, frameRate, scaleFactor)
 
       socket.emit(`video_render_completed`, {
         currentGroupKey,

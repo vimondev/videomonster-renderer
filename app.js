@@ -545,7 +545,7 @@ async function func() {
 
       installFontMap,
     } = data
-    const videoOptions = data.videoOptions ?? {}
+    const videoOptions = {} // data.videoOptions ?? {}
     const scaleFactor = videoOptions.scaleFactor;
 
     console.log(data)

@@ -103,6 +103,31 @@ const LstatAsync = (path) => {
 }
 exports.LstatAsync = LstatAsync
 
+const MkdirAsync = async path => {
+    try {
+        await promisify(fs.mkdir)(path)
+    }
+    catch (e) {
+        if (e && e.code === 'EEXIST') return null
+        else throw e
+    }
+}
+exports.MkdirAsync = MkdirAsync
+
+const Mkdirp = async path => {
+    if (!path || path.length === 0) throw new Error('invalid path')
+    path = path.replace(/\\/gi, '/')
+
+    const paths = path.split('/')
+    let currentPath = ''
+    
+    for (let i=0; i<paths.length; i++) {
+        currentPath += `${paths[i]}/`
+        if (!(await IsExistAsync(currentPath))) await MkdirAsync(currentPath)
+    }
+}
+exports.Mkdirp = Mkdirp
+
 const GetFolderFileList = (path) => {
     return new Promise(async (resolve, reject) => {
         try {

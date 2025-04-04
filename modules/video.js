@@ -6,6 +6,7 @@ const {
     ffmpegPath
 } = config
 const fsAsync = require('./fsAsync')
+const ytDlp = require('./ytDlp')
 const { retry, retryBoolean, TaskKill } = require('../global')
 
 function AccessAsync(path) {
@@ -291,6 +292,186 @@ exports.ExportGif = (videoFilePath, outputPath, duration, startTimeSec = 0, scal
         catch (e) {
             console.log(e)
             reject(`ERR_EXPORT_GIF_FAILED (비디오 렌더러 GIF 렌더링 실패 - 1)`)
+        }
+    })
+}
+
+exports.DownloadYoutubeFiles = async (downloadPath, ytDlpCookiesPath, yid) => {
+    console.log(`DownloadYoutubeFiles Start!`)
+    const _DownloadYoutubeVideoFile = async yid => {
+        try {
+            const mp4FilePath = `${downloadPath}/v.mp4`
+            await ytDlp.ExecPromise([
+                '-f', 'bv*[height=720][ext=mp4][vcodec^=avc1]+ba[ext=m4a]/b[height=720][ext=mp4][vcodec^=avc1]',
+                '-o', mp4FilePath,
+                `https://www.youtube.com/watch?v=${yid}`
+            ], ytDlpCookiesPath)
+
+            return mp4FilePath
+        }
+        catch (e) {
+            console.log(e)
+            console.log('[DownloadYoutubeFile] MP4 + M4A 형식 유튜브 영상 다운로드 실패. WEBM 형식으로 다운로드 시도...')
+        }
+
+        try {
+            const webmFilePath = `${downloadPath}/v.webm`
+            await ytDlp.ExecPromise([
+                '-f', 'bv*[height=720][ext=webm][vcodec^=vp9]+ba[ext=webm][acodec^=opus]/b[height=720][ext=webm][vcodec^=vp9]',
+                '-o', webmFilePath,
+                `https://www.youtube.com/watch?v=${yid}`
+            ], ytDlpCookiesPath)
+
+            return webmFilePath
+        }
+        catch (e) {
+            console.log(e)
+            console.log('[DownloadYoutubeFile] WEBM 형식 유튜브 영상 다운로드 실패. 영상 다운로드 실패.')
+            throw e
+        }
+    }
+
+    const _DownloadYoutubeMetadataJsonFile = async yid => {
+        try {
+            const metadataJsonFilePath = `${downloadPath}/m.json`
+            const jsonData = await ytDlp.ExecPromise([
+                '--dump-json',
+                `https://www.youtube.com/watch?v=${yid}`
+            ], ytDlpCookiesPath)
+
+            await fsAsync.WriteFileAsync(metadataJsonFilePath, jsonData, { encoding: 'utf-8' })
+
+            return metadataJsonFilePath
+        }
+        catch (e) {
+            console.log(e)
+            console.log('[DownloadYoutubeFile] WEBM 형식 유튜브 영상 다운로드 실패. 영상 다운로드 실패.')
+            throw e
+        }
+    }
+
+    const [
+        videoFilePath,
+        metadataJsonFilePath
+    ] = await Promise.all([
+        _DownloadYoutubeVideoFile(yid),
+        _DownloadYoutubeMetadataJsonFile(yid)
+    ])
+
+    if (!(await retryBoolean(AccessAsync(videoFilePath)))) {
+        throw new Error(`ERR_DOWNLOAD_YOUTUBE_FILE_FAILED (유튜브 영상 다운로드 실패)`)
+    }
+    if (!(await retryBoolean(AccessAsync(metadataJsonFilePath)))) {
+        throw new Error(`ERR_DOWNLOAD_YOUTUBE_FILE_FAILED (유튜브 영상 다운로드 실패)`)
+    }
+    console.log(`DownloadYoutubeFiles Completed!`)
+
+    return {
+        videoFilePath,
+        metadataJsonFilePath
+    }
+}
+
+exports.ExtractAudioFromVideoFile = (videoFilePath, audioFilePath) => {
+    return new Promise((resolve, reject) => {
+        try {
+            console.log(`ExtractAudioFromVideoFile Start!`)
+
+            const spawn = require(`child_process`).spawn,
+                ls = spawn(`cmd`,
+                    [
+                        `/c`, `ffmpeg`,
+                        `-i`, `${videoFilePath}`,
+                        `-map`, `0:a`,
+                        `-c:a`, `copy`,
+                        `${audioFilePath}`, `-y`
+                    ]
+                    , { cwd: ffmpegPath })
+
+
+            ls.stdout.on('data', function (data) {
+                console.log('stdout: ' + data)
+            })
+
+            ls.stderr.on('data', function (data) {
+                console.log('stderr: ' + data)
+            })
+
+            ls.on('exit', async function (code) {
+                console.log('child process(ExtractAudioFromVideoFile) exited with code ' + code)
+
+                try {
+                    await sleep(1000)
+
+                    // 출력된 파일이 존재하지 않으면 실패
+                    if (!(await retryBoolean(AccessAsync(audioFilePath)))) {
+                        return reject(`ERR_EXTRACT_AUDIO_FROM_VIDEO_FILE_FAILED (비디오 오디오 추출 실패)`)
+                    }
+                    else {
+                        return resolve()
+                    }
+                }
+                catch (e) {
+                    console.log(e)
+                    reject(`ERR_EXTRACT_AUDIO_FROM_VIDEO_FILE_FAILED (비디오 오디오 추출 실패)`)
+                }
+            })
+        }
+        catch (e) {
+            console.log(e)
+            reject(`ERR_EXTRACT_AUDIO_FROM_VIDEO_FILE_FAILED (비디오 오디오 추출 실패)`)
+        }
+    })
+}
+
+exports.SliceAudioFile = (audioFilePath, startTime, endTime, outputPath) => {
+    return new Promise((resolve, reject) => {
+        try {
+            console.log(`SliceAudioFile Start!`)
+
+            const spawn = require(`child_process`).spawn,
+                ls = spawn(`cmd`,
+                    [
+                        `/c`, `ffmpeg`,
+						'-i', audioFilePath,
+						'-ss', startTime.toString(),
+						'-to', endTime.toString(),
+						'-c:a', 'copy',
+                        `${outputPath}`, `-y`
+                    ]
+                    , { cwd: ffmpegPath })
+
+            ls.stdout.on('data', function (data) {
+                console.log('stdout: ' + data)
+            })
+
+            ls.stderr.on('data', function (data) {
+                console.log('stderr: ' + data)
+            })
+
+            ls.on('exit', async function (code) {
+                console.log('child process(SliceAudioFile) exited with code ' + code)
+
+                try {
+                    await sleep(1000)
+
+                    // 출력된 파일이 존재하지 않으면 실패
+                    if (!(await retryBoolean(AccessAsync(outputPath)))) {
+                        return reject(`ERR_SLICE_AUDIO_FILE_FAILED (오디오 파일 분할 실패)`)
+                    }
+                    else {
+                        return resolve()
+                    }
+                }
+                catch (e) {
+                    console.log(e)
+                    reject(`ERR_SLICE_AUDIO_FILE_FAILED (오디오 파일 분할 실패)`)
+                }
+            })
+        }
+        catch (e) {
+            console.log(e)
+            reject(`ERR_SLICE_AUDIO_FILE_FAILED (오디오 파일 분할 실패)`)
         }
     })
 }

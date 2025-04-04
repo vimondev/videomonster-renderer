@@ -788,11 +788,17 @@ async function func() {
     isMerging = false
   })
 
-  socket.on(`download_youtube_video_start`, async (data) => {
+  socket.on(`youtube_download_start`, async (data) => {
     isVideoRendering = true
     let {
       currentGroupKey,
       rendererIndex,
+
+      downloadPath,
+      ytDlpCookiesPath,
+      meta: {
+          yid
+      },
     } = data
 
     console.log(data)
@@ -800,32 +806,49 @@ async function func() {
     try {
       await global.ClearTask()
 
-      // if (!(await AccessAsync(videoFilePath))) throw `ERR_NO_VIDEO_FILE`
-      // if (!meta || !meta.gif) throw `ERR_INVALIDE_META_DATA`
+      if (!yid) throw `ERR_INVALIDE_META_DATA`
+      await fsAsync.Mkdirp(downloadPath)
 
-      // // Rendered Frame Count 0으로 초기화 (렌더링 진행률 보고)
-      // video.ResetTotalRenderedFrameCount()
-      // renderStatus = ERenderStatus.GIF
-      // renderStartedTime = Date.now()
-      // ReportProgress(currentGroupKey, rendererIndex)
+      // Rendered Frame Count 0으로 초기화 (렌더링 진행률 보고)
+      video.ResetTotalRenderedFrameCount()
+      renderStatus = ERenderStatus.DOWNLOAD_YOUTUBE_FILES
+      renderStartedTime = Date.now()
+      ReportProgress(currentGroupKey, rendererIndex)
 
-      // const duration = Number(meta.gif.duration)
-      // const startTimeSec = Number(meta.gif.startPoint)
-      // const scaleWidth = meta.gif.scaleWidth ? meta.gif.scaleWidth : 'iw/2'
-      // const scaleHeight = meta.gif.scaleHeight ? meta.gif.scaleHeight : 'ih/2'
-      // const outputPath = path.dirname(videoFilePath)
-      // const frameRate = meta.gif.frameRate ? Number(meta.gif.frameRate) : 12
+      const { videoFilePath, metadataJsonFilePath } = await video.DownloadYoutubeFiles(downloadPath, ytDlpCookiesPath, yid)
+      let audioFilePath = `${downloadPath}/a.m4a`
+      if (path.extname(videoFilePath).toLowerCase() === '.webm') audioFilePath = `${downloadPath}/a.ogg`
+      const audioExtName = path.extname(audioFilePath).toLowerCase()
 
-      // await video.ExportGif(videoFilePath, outputPath, duration, startTimeSec, scaleWidth, scaleHeight, frameRate)
+      await video.ExtractAudioFromVideoFile(videoFilePath, audioFilePath)
+      const metadata = JSON.parse(await fsAsync.ReadFileAsync(metadataJsonFilePath, { encoding: 'utf-8' }))
+      const duration = Number(metadata.duration)
 
-      socket.emit(`download_youtube_video_completed`, {
+      const segmentDuration = 300; // 5분
+      const overlapDuration = 20; // 20초 오버랩
+      
+      const promises = []
+      const length = Math.ceil(duration / segmentDuration)
+      for (let i=0; i<length; i++) {
+				const currentTime = i * segmentDuration;
+				let endTime = currentTime + segmentDuration + overlapDuration;
+				if (endTime > duration) {
+					endTime = duration;
+				}
+				const slicedAudioFilePath = `${downloadPath}/s-${i}${audioExtName}`;
+        promises.push(video.SliceAudioFile(audioFilePath, currentTime, endTime, slicedAudioFilePath))
+      }
+
+      await Promise.all(promises)
+
+      socket.emit(`youtube_download_completed`, {
         currentGroupKey,
         errCode: null
       })
     }
     catch (e) {
       console.log(e)
-      socket.emit(`download_youtube_video_completed`, {
+      socket.emit(`youtube_download_completed`, {
         currentGroupKey,
         errCode: e
       })

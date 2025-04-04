@@ -4,6 +4,9 @@ exports.ERenderStatus = {
     AUDIO: 2,
     MAKEMP4: 3,
     GIF: 4,
+    DOWNLOAD_YOUTUBE_FILES: 5,
+    EXTRACT_THUMBNAILS_FROM_YOUTUBE_FILE: 6,
+    GENERATE_YOUTUBE_SHORTS: 7,
 }
 
 exports.EEncodeStatus = {

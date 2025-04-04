@@ -1,8 +1,8 @@
 const fs = require('fs')
 const { promisify } = require('util')
 
-const WriteFileAsync = (path, data) => {
-    return promisify(fs.writeFile)(path, data)
+const WriteFileAsync = (path, data, options) => {
+    return promisify(fs.writeFile)(path, data, options)
 }
 exports.WriteFileAsync = WriteFileAsync
 
@@ -33,9 +33,9 @@ const IsExistAsync = (path) => {
 }
 exports.IsExistAsync = IsExistAsync
 
-const ReadFileAsync = (path) => {
+const ReadFileAsync = (path, options) => {
     return new Promise((resolve, reject) => {
-        fs.readFile(path, (err, data) => {
+        fs.readFile(path, options, (err, data) => {
             if (err) reject(err)
             else resolve(data)
         })

@@ -397,7 +397,7 @@ exports.DownloadYoutubeFiles = async ({
 
                 return {
                     videoExtName: `.webm`,
-                    audioExtName: `.webm`
+                    audioExtName: `.ogg`
                 }
             }
             catch (e) {

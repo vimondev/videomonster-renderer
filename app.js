@@ -633,6 +633,14 @@ async function func() {
             renderedFrameCount: video.GetTotalRenderedFrameCount()
           })
           break
+
+        case ERenderStatus.DOWNLOAD_YOUTUBE_FILES:
+          socket.emit(`report_progress`, {
+            currentGroupKey,
+            renderStatus,
+            processPercentage: video.GetProcessPercentage()
+          })
+          break
       }
 
       setTimeout(ReportProgress, 1000, currentGroupKey, rendererIndex)
@@ -794,11 +802,15 @@ async function func() {
       currentGroupKey,
       rendererIndex,
 
-      downloadPath,
+      targetFolderPath,
       ytDlpCookiesPath,
-      meta: {
-          yid
-      },
+
+      metadataJsonFileName,
+      videoFileName,
+      audioFileName,
+      splittedAudioFileName,
+      
+      yid
     } = data
 
     console.log(data)
@@ -807,39 +819,30 @@ async function func() {
       await global.ClearTask()
 
       if (!yid) throw `ERR_INVALIDE_META_DATA`
-      await fsAsync.Mkdirp(downloadPath)
+      await fsAsync.Mkdirp(targetFolderPath)
 
-      // Rendered Frame Count 0으로 초기화 (렌더링 진행률 보고)
-      video.ResetTotalRenderedFrameCount()
+      video.ResetProcessPercentage()
       renderStatus = ERenderStatus.DOWNLOAD_YOUTUBE_FILES
       renderStartedTime = Date.now()
       ReportProgress(currentGroupKey, rendererIndex)
 
-      const { videoFilePath, metadataJsonFilePath } = await video.DownloadYoutubeFiles(downloadPath, ytDlpCookiesPath, yid)
-      let audioFilePath = `${downloadPath}/a.m4a`
-      if (path.extname(videoFilePath).toLowerCase() === '.webm') audioFilePath = `${downloadPath}/a.ogg`
-      const audioExtName = path.extname(audioFilePath).toLowerCase()
+      const segmentDuration = 300   // 5분
+      const overlapDuration = 20    // 20초 오버랩
 
-      await video.ExtractAudioFromVideoFile(videoFilePath, audioFilePath)
-      const metadata = JSON.parse(await fsAsync.ReadFileAsync(metadataJsonFilePath, { encoding: 'utf-8' }))
-      const duration = Number(metadata.duration)
+      await video.DownloadYoutubeFiles({
+        targetFolderPath,
+        ytDlpCookiesPath,
 
-      const segmentDuration = 300; // 5분
-      const overlapDuration = 20; // 20초 오버랩
-      
-      const promises = []
-      const length = Math.ceil(duration / segmentDuration)
-      for (let i=0; i<length; i++) {
-				const currentTime = i * segmentDuration;
-				let endTime = currentTime + segmentDuration + overlapDuration;
-				if (endTime > duration) {
-					endTime = duration;
-				}
-				const slicedAudioFilePath = `${downloadPath}/s-${i}${audioExtName}`;
-        promises.push(video.SliceAudioFile(audioFilePath, currentTime, endTime, slicedAudioFilePath))
-      }
+        metadataJsonFileName,
+        videoFileName,
+        audioFileName,
+        splittedAudioFileName,
 
-      await Promise.all(promises)
+        segmentDuration,
+        overlapDuration,
+
+        yid
+      })
 
       socket.emit(`youtube_download_completed`, {
         currentGroupKey,

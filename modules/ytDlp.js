@@ -21,6 +21,25 @@ class YTDlp {
         await YTDlpWrap.downloadFromGithub(ytDlpBinaryPath);
     }
     
+    async Exec(args, cookiesPath, progressCallback) {
+        return new Promise((resolve, reject) => {
+            this.ytDlpWrap.exec([
+                '--cookies', cookiesPath,
+                ...args
+            ])
+            .on('progress', progress => {
+                if (typeof progressCallback === 'function') {
+                    progressCallback(progress.percent)
+                }
+            })
+            .on('ytDlpEvent', (eventType, eventData) =>
+                console.log(eventType, eventData)
+            )
+            .on('error', reject)
+            .on('close', resolve)
+        })
+    }
+    
     async ExecPromise(args, cookiesPath) {
         return this.ytDlpWrap.execPromise([
             '--cookies', cookiesPath,

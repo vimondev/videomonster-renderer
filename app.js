@@ -634,7 +634,7 @@ async function func() {
           })
           break
 
-        case ERenderStatus.DOWNLOAD_YOUTUBE_FILES:
+        case ERenderStatus.DOWNLOAD_YOUTUBE_PREVIEW_FILES:
           socket.emit(`report_progress`, {
             currentGroupKey,
             renderStatus,
@@ -876,7 +876,7 @@ async function func() {
       await fsAsync.Mkdirp(targetFolderPath)
 
       video.ResetProcessPercentage()
-      renderStatus = ERenderStatus.DOWNLOAD_YOUTUBE_FILES
+      renderStatus = ERenderStatus.DOWNLOAD_YOUTUBE_PREVIEW_FILES
       renderStartedTime = Date.now()
       ReportProgress(currentGroupKey, rendererIndex)
 

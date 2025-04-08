@@ -641,6 +641,9 @@ async function func() {
             processPercentage: video.GetProcessPercentage()
           })
           break
+
+        default:
+          break
       }
 
       setTimeout(ReportProgress, 1000, currentGroupKey, rendererIndex)
@@ -796,7 +799,7 @@ async function func() {
     isMerging = false
   })
 
-  socket.on(`youtube_download_start`, async (data) => {
+  socket.on(`youtube_metadata_download_start`, async (data) => {
     isVideoRendering = true
     let {
       currentGroupKey,
@@ -806,6 +809,57 @@ async function func() {
       ytDlpCookiesPath,
 
       metadataJsonFileName,
+      yid
+    } = data
+
+    console.log(data)
+
+    try {
+      await global.ClearTask()
+
+      if (!yid) throw `ERR_INVALIDE_META_DATA`
+      await fsAsync.Mkdirp(targetFolderPath)
+
+      video.ResetProcessPercentage()
+      renderStatus = ERenderStatus.DOWNLOAD_YOUTUBE_METADATA
+      renderStartedTime = Date.now()
+      ReportProgress(currentGroupKey, rendererIndex)
+
+      await video.DownloadYoutubeMetadata({
+        targetFolderPath,
+        ytDlpCookiesPath,
+
+        metadataJsonFileName,
+        yid
+      })
+
+      socket.emit(`youtube_metadata_download_completed`, {
+        currentGroupKey,
+        errCode: null
+      })
+    }
+    catch (e) {
+      console.log(e)
+      socket.emit(`youtube_metadata_download_completed`, {
+        currentGroupKey,
+        errCode: e
+      })
+    }
+    
+    renderStatus = ERenderStatus.NONE
+    isVideoRendering = false
+    renderStartedTime = null
+  })
+
+  socket.on(`youtube_preview_files_download_start`, async (data) => {
+    isVideoRendering = true
+    let {
+      currentGroupKey,
+      rendererIndex,
+
+      targetFolderPath,
+      ytDlpCookiesPath,
+
       videoFileName,
       audioFileName,
       splittedAudioFileName,
@@ -829,11 +883,10 @@ async function func() {
       const segmentDuration = 300   // 5분
       const overlapDuration = 20    // 20초 오버랩
 
-      await video.DownloadYoutubeFiles({
+      await video.DownloadYoutubePreviewFiles({
         targetFolderPath,
         ytDlpCookiesPath,
 
-        metadataJsonFileName,
         videoFileName,
         audioFileName,
         splittedAudioFileName,
@@ -844,14 +897,14 @@ async function func() {
         yid
       })
 
-      socket.emit(`youtube_download_completed`, {
+      socket.emit(`youtube_preview_files_download_completed`, {
         currentGroupKey,
         errCode: null
       })
     }
     catch (e) {
       console.log(e)
-      socket.emit(`youtube_download_completed`, {
+      socket.emit(`youtube_preview_files_download_completed`, {
         currentGroupKey,
         errCode: e
       })

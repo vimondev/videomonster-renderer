@@ -332,11 +332,40 @@ const SpawnFFMpeg = args => {
     })
 }
 
-exports.DownloadYoutubeFiles = async ({
+exports.DownloadYoutubeMetadata = async ({
     targetFolderPath,
     ytDlpCookiesPath,
 
     metadataJsonFileName,
+    yid
+}) => {
+    const localDownloadDir = `${localPath}/youtube-metadata-download`
+    if (await fsAsync.IsExistAsync(localDownloadDir)) await fsAsync.UnlinkFolderRecursiveIgnoreError(localDownloadDir)
+    await fsAsync.Mkdirp(localDownloadDir)
+
+    const [
+        metadataJson,
+    ] = await Promise.all([
+        (() => {
+            return ytDlp.ExecPromise([
+                '--dump-json',
+                `https://www.youtube.com/watch?v=${yid}`
+            ], ytDlpCookiesPath)
+        })(),
+    ])
+
+    const targetMetadataJsonFilePath = `${targetFolderPath}/${metadataJsonFileName}`
+    await fsAsync.WriteFileAsync(targetMetadataJsonFilePath, metadataJson, { encoding: 'utf8' })
+    
+    if (!(await retryBoolean(AccessAsync(targetMetadataJsonFilePath)))) {
+        throw new Error(`ERR_WRITE_METADATA_JSON_FAILED`)
+    }
+}
+
+exports.DownloadYoutubePreviewFiles = async ({
+    targetFolderPath,
+    ytDlpCookiesPath,
+
     videoFileName,
     audioFileName,
     splittedAudioFileName,
@@ -346,7 +375,7 @@ exports.DownloadYoutubeFiles = async ({
 
     yid
 }) => {
-    const localDownloadDir = `${localPath}/youtube-download`
+    const localDownloadDir = `${localPath}/youtube-preview-files-download`
     if (await fsAsync.IsExistAsync(localDownloadDir)) await fsAsync.UnlinkFolderRecursiveIgnoreError(localDownloadDir)
     await fsAsync.Mkdirp(localDownloadDir)
 
@@ -450,13 +479,11 @@ exports.DownloadYoutubeFiles = async ({
         })
     )
 
-    const targetMetadataJsonFilePath = `${targetFolderPath}/${metadataJsonFileName}`
     const targetCopyVideoFilePath = `${targetFolderPath}/${path.basename(localVideoFilePath)}`
     const targetCopyAudioFilePath = `${targetFolderPath}/${path.basename(localAudioFilePath)}`
     const targetCopySplittedAudioFilePaths = localSplittedAudioFilePaths.map(localSplittedAudioFilePath => `${targetFolderPath}/${path.basename(localSplittedAudioFilePath)}`)
 
     await Promise.all([
-        fsAsync.WriteFileAsync(targetMetadataJsonFilePath, metadataJson, { encoding: 'utf8' }),
         fsAsync.CopyFileAsync(localVideoFilePath, targetCopyVideoFilePath),
         fsAsync.CopyFileAsync(localAudioFilePath, targetCopyAudioFilePath),
         ...localSplittedAudioFilePaths.map(
@@ -466,11 +493,8 @@ exports.DownloadYoutubeFiles = async ({
             )
         )
     ])
-    
-    if (!(await retryBoolean(AccessAsync(targetMetadataJsonFilePath)))) {
-        throw new Error(`ERR_WRITE_METADATA_JSON_FAILED`)
-    }
-    if (!(await retryBoolean(AccessAsync(targetMetadataJsonFilePath)))) {
+
+    if (!(await retryBoolean(AccessAsync(targetCopyVideoFilePath)))) {
         throw new Error(`ERR_COPY_VIDEO_FILE_FAILED`)
     }
     if (!(await retryBoolean(AccessAsync(targetCopyAudioFilePath)))) {

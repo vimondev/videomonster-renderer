@@ -461,7 +461,7 @@ exports.DownloadYoutubePreviewFiles = async ({
         targetTimes.push({
             startTime,
             endTime,
-            splittedAudioFilePath: `${localSplittedAudioFilePath}-${i}${audioExtName}`
+            splittedAudioFilePath: `${localSplittedAudioFilePath}${i}${audioExtName}`
         })
     }
 

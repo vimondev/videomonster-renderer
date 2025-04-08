@@ -920,6 +920,11 @@ async function func() {
     let {
       currentGroupKey,
       rendererIndex,
+
+      targetFolderPath,
+      videoUrl,
+
+      previewImageFileName
     } = data
 
     console.log(data)
@@ -927,23 +932,19 @@ async function func() {
     try {
       await global.ClearTask()
 
-      // if (!(await AccessAsync(videoFilePath))) throw `ERR_NO_VIDEO_FILE`
-      // if (!meta || !meta.gif) throw `ERR_INVALIDE_META_DATA`
+      if (!videoUrl) throw `ERR_INVALIDE_META_DATA`
+      await fsAsync.Mkdirp(targetFolderPath)
 
-      // // Rendered Frame Count 0으로 초기화 (렌더링 진행률 보고)
-      // video.ResetTotalRenderedFrameCount()
-      // renderStatus = ERenderStatus.GIF
-      // renderStartedTime = Date.now()
-      // ReportProgress(currentGroupKey, rendererIndex)
+      video.ResetProcessPercentage()
+      renderStatus = ERenderStatus.EXTRACT_THUMBNAILS_FROM_YOUTUBE_FILE
+      renderStartedTime = Date.now()
+      ReportProgress(currentGroupKey, rendererIndex)
 
-      // const duration = Number(meta.gif.duration)
-      // const startTimeSec = Number(meta.gif.startPoint)
-      // const scaleWidth = meta.gif.scaleWidth ? meta.gif.scaleWidth : 'iw/2'
-      // const scaleHeight = meta.gif.scaleHeight ? meta.gif.scaleHeight : 'ih/2'
-      // const outputPath = path.dirname(videoFilePath)
-      // const frameRate = meta.gif.frameRate ? Number(meta.gif.frameRate) : 12
-
-      // await video.ExportGif(videoFilePath, outputPath, duration, startTimeSec, scaleWidth, scaleHeight, frameRate)
+      await video.ExtractThumbnailsFromYoutubeFile({
+        targetFolderPath,
+        videoUrl,
+        previewImageFileName
+      })
 
       socket.emit(`extract_thumbnails_from_youtube_file_completed`, {
         currentGroupKey,
@@ -953,6 +954,57 @@ async function func() {
     catch (e) {
       console.log(e)
       socket.emit(`extract_thumbnails_from_youtube_file_completed`, {
+        currentGroupKey,
+        errCode: e
+      })
+    }
+    
+    renderStatus = ERenderStatus.NONE
+    isVideoRendering = false
+    renderStartedTime = null
+  })
+
+  socket.on(`extract_posters_from_youtube_file_start`, async (data) => {
+    isVideoRendering = true
+    let {
+      currentGroupKey,
+      rendererIndex,
+
+      targetFolderPath,
+      videoUrl,
+
+      posterImageFileName,
+      startTimes
+    } = data
+
+    console.log(data)
+
+    try {
+      await global.ClearTask()
+
+      if (!videoUrl) throw `ERR_INVALIDE_META_DATA`
+      await fsAsync.Mkdirp(targetFolderPath)
+
+      video.ResetProcessPercentage()
+      renderStatus = ERenderStatus.EXTRACT_POSTERS_FROM_YOUTUBE_FILE
+      renderStartedTime = Date.now()
+      ReportProgress(currentGroupKey, rendererIndex)
+
+      await video.ExtractPostersFromYoutubeFile({
+        targetFolderPath,
+        videoUrl,
+        posterImageFileName,
+        startTimes
+      })
+
+      socket.emit(`extract_posters_from_youtube_file_completed`, {
+        currentGroupKey,
+        errCode: null
+      })
+    }
+    catch (e) {
+      console.log(e)
+      socket.emit(`extract_posters_from_youtube_file_completed`, {
         currentGroupKey,
         errCode: e
       })

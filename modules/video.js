@@ -8,7 +8,7 @@ const {
 } = config
 const fsAsync = require('./fsAsync')
 const ytDlp = require('./ytDlp')
-const { retry, retryBoolean, TaskKill } = require('../global')
+const { retry, retryBoolean, TaskKill, downloadFile } = require('../global')
 
 function AccessAsync(_path) {
     return new Promise((resolve, reject) => {
@@ -505,6 +505,62 @@ exports.DownloadYoutubePreviewFiles = async ({
             throw new Error(`ERR_COPY_SPLITTED_AUDIO_FILE_FAILED`)
         }
     }
+}
+
+exports.ExtractThumbnailsFromYoutubeFile = async ({
+    targetFolderPath,
+    videoUrl,
+    previewImageFileName,
+}) => {
+    const localDownloadDir = `${localPath}/extract-thumbnails-from-youtube-file`
+    if (await fsAsync.IsExistAsync(localDownloadDir)) await fsAsync.UnlinkFolderRecursiveIgnoreError(localDownloadDir)
+    await fsAsync.Mkdirp(localDownloadDir)
+
+    const videoFileName = path.basename(videoUrl)
+    const localVideoFilePath = `${localDownloadDir}/${videoFileName}`
+
+    await downloadFile(localVideoFilePath, videoUrl)
+    if (!(await retryBoolean(AccessAsync(localVideoFilePath)))) {
+        throw new Error(`ERR_DOWNLOAD_VIDEO_FILE_FAILED`)
+    }
+
+    const targetPreviewImageFilePath = `${targetFolderPath}/${previewImageFileName}%d.jpg`
+    await SpawnFFMpeg([
+        '-i', localVideoFilePath,
+        '-vf', 'fps=1,scale=-2:144',
+        targetPreviewImageFilePath,
+        '-y',
+    ])
+}
+
+exports.ExtractPostersFromYoutubeFile = async ({
+    targetFolderPath,
+    videoUrl,
+    posterImageFileName,
+    startTimes
+}) => {
+    const localDownloadDir = `${localPath}/extract-posters-from-youtube-file`
+    if (await fsAsync.IsExistAsync(localDownloadDir)) await fsAsync.UnlinkFolderRecursiveIgnoreError(localDownloadDir)
+    await fsAsync.Mkdirp(localDownloadDir)
+
+    const videoFileName = path.basename(videoUrl)
+    const localVideoFilePath = `${localDownloadDir}/${videoFileName}`
+
+    await downloadFile(localVideoFilePath, videoUrl)
+    if (!(await retryBoolean(AccessAsync(localVideoFilePath)))) {
+        throw new Error(`ERR_DOWNLOAD_VIDEO_FILE_FAILED`)
+    }
+
+    await Promise.all(startTimes.map(async (startTime, index) => {
+        const targetPosterImageFilePath = `${targetFolderPath}/${posterImageFileName}${index}.jpg`
+        await SpawnFFMpeg([
+            '-i', localVideoFilePath,
+            '-ss', startTime,
+            '-vframes', '1',
+            targetPosterImageFilePath,
+            '-y',
+        ])
+    }))
 }
 
 // TIFF -> h264 인코딩

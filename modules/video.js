@@ -524,13 +524,29 @@ exports.ExtractThumbnailsFromYoutubeFile = async ({
         throw new Error(`ERR_DOWNLOAD_VIDEO_FILE_FAILED`)
     }
 
-    const targetPreviewImageFilePath = `${targetFolderPath}/${previewImageFileName}%d.jpg`
+    const localPreviewImageFilePath = `${localDownloadDir}/${previewImageFileName}%d.jpg`
     await SpawnFFMpeg([
         '-i', localVideoFilePath,
         '-vf', 'fps=1,scale=-2:144',
-        targetPreviewImageFilePath,
+        localPreviewImageFilePath,
         '-y',
     ])
+
+    const localPreviewImageFileNames = await ReadDirAsync(localDownloadDir)
+    if (localPreviewImageFileNames.length === 0) {
+        throw new Error(`ERR_EXTRACT_THUMBNAILS_FROM_YOUTUBE_FILE_FAILED`)
+    }
+
+    let count = 0
+    await Promise.all(localPreviewImageFileNames.map(async localPreviewImageFileName => {
+        const targetPreviewImageFilePath = `${targetFolderPath}/${localPreviewImageFileName}`
+        await fsAsync.CopyFileAsync(`${localDownloadDir}/${localPreviewImageFileName}`, targetPreviewImageFilePath)
+        count++
+
+        if (count % 100 === 0) {
+            console.log(`uploaded extracted thumbnails: ${count} / ${localPreviewImageFileNames.length}`)
+        }
+    }))
 }
 
 exports.ExtractPostersFromYoutubeFile = async ({

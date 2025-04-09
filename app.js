@@ -36,20 +36,16 @@ async function func() {
 
   async function GetTargetRenderServerIp() {
     try {
-      const isStaticMachine = process.env.IS_STATIC_MACHINE === 'true'
-      const region = process.env.REGION
+      // const isStaticMachine = process.env.IS_STATIC_MACHINE === 'true'
+      // const region = process.env.REGION
       
       const { current } = await git.status()
       switch(current) {
         case 'master':
-          // if (isStaticMachine)
-          if (region === 'US') return 'http://vmclientusstage.eastus.cloudapp.azure.com:3000'
           return 'http://vmstage2023.koreacentral.cloudapp.azure.com:3000'
-          // return 'http://10.0.0.7:3000'
         case 'dev':
-          // if (isStaticMachine)
-          return 'http://videomonster.iptime.org:3000'
-          // return 'http://10.0.0.19:3000'
+          return 'http://vmdev2025.koreacentral.cloudapp.azure.com:3000'
+          // return 'http://videomonster.iptime.org:3000'
 
         default: 
           console.log(`[ERROR] Target Server Ip is null. (Branch : ${current})`)

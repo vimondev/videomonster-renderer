@@ -527,7 +527,7 @@ exports.ExtractThumbnailsFromYoutubeFile = async ({
     const localPreviewImageFilePath = `${localDownloadDir}/${previewImageFileName}%d.jpg`
     await SpawnFFMpeg([
         '-i', localVideoFilePath,
-        '-vf', 'fps=1,scale=-2:144',
+        '-vf', 'fps=1/2,scale=-2:96',
         localPreviewImageFilePath,
         '-y',
     ])

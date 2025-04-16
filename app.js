@@ -1024,7 +1024,6 @@ async function func() {
       targetFolderPath,
       ytDlpCookiesPath,
 
-      yid,
       meta
     } = data
 
@@ -1045,7 +1044,6 @@ async function func() {
         targetFolderPath,
         ytDlpCookiesPath,
 
-        yid,
         meta
       })
 

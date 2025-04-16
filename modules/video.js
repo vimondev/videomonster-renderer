@@ -588,8 +588,8 @@ exports.GenerateYoutubeShorts = async ({
     targetFolderPath,
     ytDlpCookiesPath,
 
-    yid,
     meta: {
+        yid,
         texts = [],
         layout = 'Layout01',
         volume = 1,
@@ -851,11 +851,26 @@ exports.GenerateYoutubeShorts = async ({
         processPercentage = renderedFrameCount / totalFrameCount
     })
 
+    const resultThumbnailPath = `${targetFolderPath}/result.jpg`
+    await SpawnFFMpeg([
+        '-i', resultVideoPath,
+        '-ss', '00:00:01',
+        '-vframes', '1',
+        resultThumbnailPath,
+        '-y'
+    ])
+
     const targetResultVideoPath = `${targetFolderPath}/result.mp4`
     await fsAsync.CopyFileAsync(resultVideoPath, targetResultVideoPath)
 
+    const targetResultThumbnailPath = `${targetFolderPath}/result.jpg`
+    await fsAsync.CopyFileAsync(resultThumbnailPath, targetResultThumbnailPath)
+
     if (!(await retryBoolean(AccessAsync(targetResultVideoPath)))) {
         throw new Error(`ERR_YOUTUBE_SHORTS_RESULT_VIDEO_NOT_EXIST`)
+    }
+    if (!(await retryBoolean(AccessAsync(targetResultThumbnailPath)))) {
+        throw new Error(`ERR_YOUTUBE_SHORTS_RESULT_THUMBNAIL_NOT_EXIST`)
     }
 
     console.log(`Generated shorts video in ${Date.now() - startTime}ms`)

@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "adm-zip": "^0.5.16",
     "axios": "^0.18.0",
     "dotenv": "^7.0.0",
     "guid": "0.0.12",

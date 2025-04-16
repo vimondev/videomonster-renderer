@@ -1,5 +1,6 @@
 const fs = require(`fs`)
 const path = require(`path`)
+const AdmZip = require(`adm-zip`)
 const config = require(`../config`)
 const {
     localPath,
@@ -482,16 +483,16 @@ exports.ExtractThumbnailsFromYoutubeFile = async ({
         throw new Error(`ERR_EXTRACT_THUMBNAILS_FROM_YOUTUBE_FILE_FAILED`)
     }
 
-    let count = 0
-    await Promise.all(localPreviewImageFileNames.map(async localPreviewImageFileName => {
-        const targetPreviewImageFilePath = `${targetFolderPath}/${localPreviewImageFileName}`
-        await fsAsync.CopyFileAsync(`${localDownloadDir}/${localPreviewImageFileName}`, targetPreviewImageFilePath)
-        count++
+    const zip = new AdmZip()
+    localPreviewImageFileNames.forEach(localPreviewImageFileName => {
+        zip.addLocalFile(`${localDownloadDir}/${localPreviewImageFileName}`)
+    })
 
-        if (count % 100 === 0) {
-            console.log(`uploaded extracted thumbnails: ${count} / ${localPreviewImageFileNames.length}`)
-        }
-    }))
+    const targetZipFilePath = `${targetFolderPath}/thumbnails.zip`
+    const result = await zip.writeZipPromise(targetZipFilePath, { overwrite: true })
+    if (!result || !(await retryBoolean(AccessAsync(targetZipFilePath)))) {
+        throw new Error(`ERR_WRITE_ZIP_FILE_FAILED`)
+    }
 }
 
 exports.SplitAudioFiles = async ({

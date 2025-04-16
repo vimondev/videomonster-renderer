@@ -369,10 +369,6 @@ exports.DownloadYoutubePreviewFiles = async ({
 
     videoFileName,
     audioFileName,
-    splittedAudioFileName,
-
-    segmentDuration,
-    overlapDuration,
 
     yid
 }) => {
@@ -382,18 +378,10 @@ exports.DownloadYoutubePreviewFiles = async ({
 
     let localVideoFilePath = `${localDownloadDir}/${videoFileName}`
     let localAudioFilePath = `${localDownloadDir}/${audioFileName}`
-    let localSplittedAudioFilePath = `${localDownloadDir}/${splittedAudioFileName}`
 
     const [
-        metadataJson,
         extname
     ] = await Promise.all([
-        (() => {
-            return ytDlp.ExecPromise([
-                '--dump-json',
-                `https://www.youtube.com/watch?v=${yid}`
-            ], ytDlpCookiesPath)
-        })(),
         (async () => {
             try {
                 const mp4FilePath = `${localVideoFilePath}.mp4`
@@ -437,9 +425,6 @@ exports.DownloadYoutubePreviewFiles = async ({
         })()
     ])
 
-    const metadata = JSON.parse(metadataJson)
-    const duration = Number(metadata.duration)
-
     const { videoExtName, audioExtName } = extname
     localVideoFilePath = `${localVideoFilePath}${videoExtName}`
     localAudioFilePath = `${localAudioFilePath}${audioExtName}`
@@ -451,48 +436,12 @@ exports.DownloadYoutubePreviewFiles = async ({
         `${localAudioFilePath}`, `-y`
     ])
 
-    const targetTimes = []
-    const length = Math.ceil(duration / segmentDuration)
-    for (let i = 0; i < length; i++) {
-        const startTime = i * segmentDuration
-        let endTime = startTime + segmentDuration + overlapDuration
-        if (endTime > duration) {
-            endTime = duration
-        }
-        targetTimes.push({
-            startTime,
-            endTime,
-            splittedAudioFilePath: `${localSplittedAudioFilePath}${i}${audioExtName}`
-        })
-    }
-
-    const localSplittedAudioFilePaths = await Promise.all(
-        targetTimes.map(async ({ startTime, endTime, splittedAudioFilePath }) => {
-            await SpawnFFMpeg([
-                '-i', localAudioFilePath,
-                '-ss', startTime.toString(),
-                '-to', endTime.toString(),
-                '-c:a', 'copy',
-                `${splittedAudioFilePath}`, `-y`
-            ])
-
-            return splittedAudioFilePath
-        })
-    )
-
     const targetCopyVideoFilePath = `${targetFolderPath}/${path.basename(localVideoFilePath)}`
     const targetCopyAudioFilePath = `${targetFolderPath}/${path.basename(localAudioFilePath)}`
-    const targetCopySplittedAudioFilePaths = localSplittedAudioFilePaths.map(localSplittedAudioFilePath => `${targetFolderPath}/${path.basename(localSplittedAudioFilePath)}`)
 
     await Promise.all([
         fsAsync.CopyFileAsync(localVideoFilePath, targetCopyVideoFilePath),
-        fsAsync.CopyFileAsync(localAudioFilePath, targetCopyAudioFilePath),
-        ...localSplittedAudioFilePaths.map(
-            (localSplittedAudioFilePath, index) => fsAsync.CopyFileAsync(
-                localSplittedAudioFilePath,
-                targetCopySplittedAudioFilePaths[index]
-            )
-        )
+        fsAsync.CopyFileAsync(localAudioFilePath, targetCopyAudioFilePath)
     ])
 
     if (!(await retryBoolean(AccessAsync(targetCopyVideoFilePath)))) {
@@ -500,11 +449,6 @@ exports.DownloadYoutubePreviewFiles = async ({
     }
     if (!(await retryBoolean(AccessAsync(targetCopyAudioFilePath)))) {
         throw new Error(`ERR_COPY_AUDIO_FILE_FAILED`)
-    }
-    for (let i = 0; i < targetCopySplittedAudioFilePaths.length; i++) {
-        if (!(await retryBoolean(AccessAsync(targetCopySplittedAudioFilePaths[i])))) {
-            throw new Error(`ERR_COPY_SPLITTED_AUDIO_FILE_FAILED`)
-        }
     }
 }
 
@@ -548,6 +492,68 @@ exports.ExtractThumbnailsFromYoutubeFile = async ({
             console.log(`uploaded extracted thumbnails: ${count} / ${localPreviewImageFileNames.length}`)
         }
     }))
+}
+
+exports.SplitAudioFiles = async ({
+    targetFolderPath,
+    audioUrl,
+
+    duration,
+    segmentDuration,
+    overlapDuration,
+
+    splittedAudioFileName,
+}) => {
+    const localDir = `${localPath}/split-audio-files`
+    if (await fsAsync.IsExistAsync(localDir)) await fsAsync.UnlinkFolderRecursiveIgnoreError(localDir)
+    await fsAsync.Mkdirp(localDir)
+
+    const audioFileName = path.basename(audioUrl)
+    const extname = path.extname(audioFileName)
+    const localAudioFilePath = `${localDir}/${audioFileName}`
+
+    await downloadFile(localAudioFilePath, audioUrl)
+    if (!(await retryBoolean(AccessAsync(localAudioFilePath)))) {
+        throw new Error(`ERR_DOWNLOAD_AUDIO_FILE_FAILED`)
+    }
+
+    const targetTimes = []
+    const length = Math.ceil(duration / segmentDuration)
+    for (let i = 0; i < length; i++) {
+        const startTime = i * segmentDuration
+        let endTime = startTime + segmentDuration + overlapDuration
+        if (endTime > duration) {
+            endTime = duration
+        }
+        targetTimes.push({
+            startTime,
+            endTime,
+            splittedAudioFilePath: `${localDir}/${splittedAudioFileName}${i}${extname}`
+        })
+    }
+
+    const localSplittedAudioFilePaths = await Promise.all(
+        targetTimes.map(async ({ startTime, endTime, splittedAudioFilePath }) => {
+            await SpawnFFMpeg([
+                '-i', localAudioFilePath,
+                '-ss', startTime.toString(),
+                '-to', endTime.toString(),
+                '-c:a', 'copy',
+                `${splittedAudioFilePath}`, `-y`
+            ])
+
+            return splittedAudioFilePath
+        })
+    )
+
+    const targetCopySplittedAudioFilePaths = localSplittedAudioFilePaths.map(localSplittedAudioFilePath => `${targetFolderPath}/${path.basename(localSplittedAudioFilePath)}`)
+    await Promise.all(localSplittedAudioFilePaths.map((localSplittedAudioFilePath, i) => fsAsync.CopyFileAsync(localSplittedAudioFilePath, targetCopySplittedAudioFilePaths[i])))
+
+    for (let i = 0; i < targetCopySplittedAudioFilePaths.length; i++) {
+        if (!(await retryBoolean(AccessAsync(targetCopySplittedAudioFilePaths[i])))) {
+            throw new Error(`ERR_COPY_SPLITTED_AUDIO_FILE_FAILED`)
+        }
+    }
 }
 
 exports.GenerateYoutubeShorts = async ({

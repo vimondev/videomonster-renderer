@@ -859,7 +859,6 @@ async function func() {
 
       videoFileName,
       audioFileName,
-      splittedAudioFileName,
 
       yid
     } = data
@@ -877,19 +876,12 @@ async function func() {
       renderStartedTime = Date.now()
       ReportProgress(currentGroupKey, rendererIndex)
 
-      const segmentDuration = 300   // 5분
-      const overlapDuration = 20    // 20초 오버랩
-
       await video.DownloadYoutubePreviewFiles({
         targetFolderPath,
         ytDlpCookiesPath,
 
         videoFileName,
         audioFileName,
-        splittedAudioFileName,
-
-        segmentDuration,
-        overlapDuration,
 
         yid
       })
@@ -951,6 +943,64 @@ async function func() {
     catch (e) {
       console.log(e)
       socket.emit(`extract_thumbnails_from_youtube_file_completed`, {
+        currentGroupKey,
+        errCode: e
+      })
+    }
+
+    renderStatus = ERenderStatus.NONE
+    isVideoRendering = false
+    renderStartedTime = null
+  })
+
+  socket.on(`split_audio_files_start`, async (data) => {
+    isVideoRendering = true
+    let {
+      currentGroupKey,
+      rendererIndex,
+
+      targetFolderPath,
+      audioUrl,
+
+      duration,
+      segmentDuration,
+      overlapDuration,
+
+      splittedAudioFileName
+    } = data
+
+    console.log(data)
+
+    try {
+      await global.ClearTask()
+
+      if (!audioUrl) throw `ERR_INVALIDE_META_DATA`
+      await fsAsync.Mkdirp(targetFolderPath)
+
+      video.ResetProcessPercentage()
+      renderStatus = ERenderStatus.SPLIT_AUDIO_FILES
+      renderStartedTime = Date.now()
+      ReportProgress(currentGroupKey, rendererIndex)
+
+      await video.SplitAudioFiles({
+        targetFolderPath,
+        audioUrl,
+
+        duration,
+        segmentDuration,
+        overlapDuration,
+
+        splittedAudioFileName
+      })
+
+      socket.emit(`split_audio_files_completed`, {
+        currentGroupKey,
+        errCode: null
+      })
+    }
+    catch (e) {
+      console.log(e)
+      socket.emit(`split_audio_files_completed`, {
         currentGroupKey,
         errCode: e
       })

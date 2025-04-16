@@ -498,7 +498,9 @@ exports.SplitAudioFiles = async ({
     targetFolderPath,
     audioUrl,
 
-    duration,
+    startTime: inputStartTime,
+    endTime: inputEndTime,
+
     segmentDuration,
     overlapDuration,
 
@@ -518,18 +520,25 @@ exports.SplitAudioFiles = async ({
     }
 
     const targetTimes = []
-    const length = Math.ceil(duration / segmentDuration)
-    for (let i = 0; i < length; i++) {
-        const startTime = i * segmentDuration
+    let index = 0
+    
+    while (true) {
+        const startTime = inputStartTime + index * segmentDuration
         let endTime = startTime + segmentDuration + overlapDuration
-        if (endTime > duration) {
-            endTime = duration
+
+        let isEnd = false
+        if (endTime > inputEndTime) {
+            endTime = inputEndTime
+            isEnd = true
         }
         targetTimes.push({
             startTime,
             endTime,
-            splittedAudioFilePath: `${localDir}/${splittedAudioFileName}${i}${extname}`
+            splittedAudioFilePath: `${localDir}/${splittedAudioFileName}${index}${extname}`
         })
+
+        if (isEnd) break
+        index++
     }
 
     const localSplittedAudioFilePaths = await Promise.all(

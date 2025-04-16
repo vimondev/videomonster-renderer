@@ -962,7 +962,9 @@ async function func() {
       targetFolderPath,
       audioUrl,
 
-      duration,
+      startTime,
+      endTime,
+
       segmentDuration,
       overlapDuration,
 
@@ -986,7 +988,9 @@ async function func() {
         targetFolderPath,
         audioUrl,
 
-        duration,
+        startTime,
+        endTime,
+
         segmentDuration,
         overlapDuration,
 

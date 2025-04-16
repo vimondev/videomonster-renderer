@@ -1032,7 +1032,6 @@ async function func() {
     try {
       await global.ClearTask()
 
-      if (!yid) throw `ERR_INVALIDE_META_DATA`
       await fsAsync.Mkdirp(targetFolderPath)
 
       video.ResetProcessPercentage()

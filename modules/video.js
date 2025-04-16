@@ -309,7 +309,7 @@ exports.ExportGif = (videoFilePath, outputPath, duration, startTimeSec = 0, scal
     })
 }
 
-const SpawnFFMpeg = args => {
+const SpawnFFMpeg = (args, renderedFrameCallback = null) => {
     return new Promise((resolve, reject) => {
         try {
             const spawn = require(`child_process`).spawn,
@@ -317,10 +317,28 @@ const SpawnFFMpeg = args => {
 
             ls.stdout.on('data', function (data) {
                 console.log('stdout: ' + data)
+                if (typeof renderedFrameCallback === `function`) {
+                    const str = String(data)
+                    if (str.includes(`frame=`) && str.includes(`fps`)) {
+                        const startIndex = str.indexOf(`frame=`, 0) + 6
+                        const endIndex = str.indexOf(`fps`)
+    
+                        renderedFrameCallback(Number(str.substring(startIndex, endIndex)))
+                    }
+                }
             })
 
             ls.stderr.on('data', function (data) {
                 console.log('stderr: ' + data)
+                if (typeof fpsCallback === `function`) {
+                    const str = String(data)
+                    if (str.includes(`frame=`) && str.includes(`fps`)) {
+                        const startIndex = str.indexOf(`frame=`, 0) + 6
+                        const endIndex = str.indexOf(`fps`)
+    
+                        fpsCallback(Number(str.substring(startIndex, endIndex)))
+                    }
+                }
             })
 
             ls.on('exit', async function (code) {
@@ -774,15 +792,15 @@ exports.GenerateYoutubeShorts = async ({
     filters.push(`${videoMapVariable}[topic]overlay=x=${topicText.left}:y=${topicText.top}${nextVideoMapVariable}`)
     videoMapVariable = nextVideoMapVariable
 
-    let currentPosition = 0
+    let currentDuration = 0
     for (const clip of clips) {
         const { start: clipStart, end: clipEnd, list } = clip
 
         for (const text of list) {
             const { filepath, start, end, left, top, width, height } = text
 
-            const textStart = start - clipStart + currentPosition
-            const textEnd = end - clipStart + currentPosition
+            const textStart = start - clipStart + currentDuration
+            const textEnd = end - clipStart + currentDuration
             inputFileArguments.push(...['-i', filepath])
 
             const idx = getInputFileCount(inputFileArguments)
@@ -793,7 +811,7 @@ exports.GenerateYoutubeShorts = async ({
             filters.push(`${videoMapVariable}${textMapVariable}overlay=x=${left}:y=${top}:enable='between(t\\,${textStart},${textEnd})'${nextVideoMapVariable}`)
             videoMapVariable = nextVideoMapVariable
         }
-        currentPosition += clipEnd - clipStart
+        currentDuration += (clipEnd - clipStart)
     }
 
     volume = Math.max(0, Math.min(2, volume))
@@ -813,6 +831,8 @@ exports.GenerateYoutubeShorts = async ({
         audioMapVariable = nextAudioMapVariable
     }
 
+    const totalFrameCount = currentDuration * 30
+
     const resultVideoPath = `${localDir}/result.mp4`
     await SpawnFFMpeg([
         ...inputFileArguments,
@@ -827,7 +847,9 @@ exports.GenerateYoutubeShorts = async ({
         '-shortest',
         resultVideoPath,
         '-y'
-    ])
+    ], renderedFrameCount => {
+        processPercentage = renderedFrameCount / totalFrameCount
+    })
 
     const targetResultVideoPath = `${targetFolderPath}/result.mp4`
     await fsAsync.CopyFileAsync(resultVideoPath, targetResultVideoPath)

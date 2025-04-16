@@ -38,16 +38,16 @@ async function func() {
     try {
       // const isStaticMachine = process.env.IS_STATIC_MACHINE === 'true'
       // const region = process.env.REGION
-      
+
       const { current } = await git.status()
-      switch(current) {
+      switch (current) {
         case 'master':
           return 'http://vmstage2023.koreacentral.cloudapp.azure.com:3000'
         case 'dev':
           return 'http://vmdev2025.koreacentral.cloudapp.azure.com:3000'
-          // return 'http://videomonster.iptime.org:3000'
+        // return 'http://videomonster.iptime.org:3000'
 
-        default: 
+        default:
           console.log(`[ERROR] Target Server Ip is null. (Branch : ${current})`)
           return null
       }
@@ -61,13 +61,13 @@ async function func() {
   async function CreateAndReadToken() {
     try {
       const tokenPath = 'C:/Users/Public/token.txt'
-      if(!await fsAsync.IsExistAsync(tokenPath)) {
+      if (!await fsAsync.IsExistAsync(tokenPath)) {
         await fsAsync.WriteFileAsync(tokenPath, uuid())
       }
       const token = await fsAsync.ReadFileAsync(tokenPath)
       return String(token)
     }
-    catch(e) {
+    catch (e) {
       console.log(e)
       return ""
     }
@@ -150,7 +150,7 @@ async function func() {
   }
 
   let renderServerIp = await GetTargetRenderServerIp()
-  if(!renderServerIp) console.log(`[Error] RenderServerIp not found.`)
+  if (!renderServerIp) console.log(`[Error] RenderServerIp not found.`)
 
   console.log(`start!`)
 
@@ -179,7 +179,7 @@ async function func() {
 
   console.log(`RendererId(${rendererid}) IsStaticMachine(${isStaticMachine}) TargetServer(${renderServerIp})`)
 
-  async function OnGifRenderStart (data) {
+  async function OnGifRenderStart(data) {
     isVideoRendering = true
     let {
       currentGroupKey,
@@ -229,7 +229,7 @@ async function func() {
     renderStartedTime = null
   }
 
-  async function OnVideoSourceEncodeStart (data) {
+  async function OnVideoSourceEncodeStart(data) {
     isSourceEncoding = true
     let {
       currentGroupKey,
@@ -267,7 +267,7 @@ async function func() {
       const { width: rW, height: rH } = image.CalMinResolution(512, 512, resolution.width, resolution.height)
       const resize = { width: Math.floor(rW), height: Math.floor(rH) }
       const uploadedFilePath = `${userSourceUploadPath}/${fileName}`
-      
+
       await video.EncodeToMP4(uploadedFilePath, videoFilePath)
       const screenshotFilePath = thumbnailFilePath.replace('thumb', 'screenshot')
       await video.Screenshot(videoFilePath, screenshotFilePath)
@@ -293,7 +293,7 @@ async function func() {
     renderStartedTime = null
   }
 
-  async function OnImageSourceEncodeStart (data) {
+  async function OnImageSourceEncodeStart(data) {
     isSourceEncoding = true
     let {
       currentGroupKey,
@@ -354,14 +354,14 @@ async function func() {
   }
 
   socket.on(`connect`, () => {
-      const data = {
-        type: 'videoclient',
-        rendererid,
-        isStaticMachine
-      }
-      console.log(`Connected!`)
-      console.log(data)
-      socket.emit(`regist`, data)
+    const data = {
+      type: 'videoclient',
+      rendererid,
+      isStaticMachine
+    }
+    console.log(`Connected!`)
+    console.log(data)
+    socket.emit(`regist`, data)
   })
 
   socket.on(`disconnect`, () => {
@@ -435,7 +435,7 @@ async function func() {
       audioPath,
       videoPath,
       fontPath,
-      
+
       width,
       height,
 
@@ -631,6 +631,7 @@ async function func() {
           break
 
         case ERenderStatus.DOWNLOAD_YOUTUBE_PREVIEW_FILES:
+        case ERenderStatus.GENERATE_YOUTUBE_SHORTS:
           socket.emit(`report_progress`, {
             currentGroupKey,
             renderStatus,
@@ -681,7 +682,7 @@ async function func() {
 
         // 영상에 유저 오디오를 입힌다.
         const generatedAudioPath = await video.AudioFadeInOut(encodedAudioPath, audioReplaceInfo.StartTime, audioReplaceInfo.FadeDuration, time, audioReplaceInfo.Volume)
-        
+
         let seconds = Math.floor(audioReplaceInfo.StartTime % 60)
         let minuts = Math.floor(audioReplaceInfo.StartTime / 60)
         let milliseconds = (audioReplaceInfo.StartTime - Math.floor(audioReplaceInfo.StartTime)).toFixed(3)
@@ -689,9 +690,9 @@ async function func() {
         minuts = minuts < 10 ? `0` + minuts : minuts
         milliseconds = milliseconds > 0 ? milliseconds * 1000 : 0
         if (milliseconds === 0) milliseconds = `000`
-        else if (milliseconds < 10) milliseconds = `00${milliseconds}` 
+        else if (milliseconds < 10) milliseconds = `00${milliseconds}`
         else if (milliseconds < 100) milliseconds = `0${milliseconds}`
-        
+
         videoStartTime = `00:00:00.000`
         audioStartTime = `00:${minuts}:${seconds}.${milliseconds}`
         concatAudioPath = generatedAudioPath
@@ -746,15 +747,15 @@ async function func() {
           if (watermarkPath) {
             let sealedFileName = 'sealed.mp4'
             if (watermarkPath2) sealedFileName = 'temp.mp4'
-  
+
             const { scaleFactor, scaledWatermarkHeight } = await video.ScaleWatermark(watermarkPath, 275, 115, videoPath, width, height, scaledWatermarkFileName)
-  
+
             const scaledGapX = Math.floor(70 * scaleFactor)
             const scaledGapY = Math.floor(60 * scaleFactor)
-  
+
             const watermarkPositionX = scaledGapX
             const watermarkPositionY = height - scaledWatermarkHeight - scaledGapY
-  
+
             await video.PutWatermark(videoPath, 'result.mp4', sealedFileName, scaledWatermarkFileName, watermarkPositionX, watermarkPositionY)
           }
           // 우측 상단 워터마크
@@ -763,15 +764,15 @@ async function func() {
             if (watermarkPath) {
               originalFileName = 'temp.mp4'
             }
-  
+
             const { scaleFactor, scaledWatermarkWidth } = await video.ScaleWatermark(watermarkPath2, 244, 60, videoPath, width, height, scaledWatermarkFileName)
-  
+
             const scaledGapX = Math.floor(40 * scaleFactor)
             const scaledGapY = Math.floor(40 * scaleFactor)
-  
+
             const watermarkPositionX = width - scaledWatermarkWidth - scaledGapX
             const watermarkPositionY = scaledGapY
-  
+
             await video.PutWatermark(videoPath, originalFileName, 'sealed.mp4', scaledWatermarkFileName, watermarkPositionX, watermarkPositionY)
           }
         }
@@ -841,7 +842,7 @@ async function func() {
         errCode: e
       })
     }
-    
+
     renderStatus = ERenderStatus.NONE
     isVideoRendering = false
     renderStartedTime = null
@@ -859,7 +860,7 @@ async function func() {
       videoFileName,
       audioFileName,
       splittedAudioFileName,
-      
+
       yid
     } = data
 
@@ -905,7 +906,7 @@ async function func() {
         errCode: e
       })
     }
-    
+
     renderStatus = ERenderStatus.NONE
     isVideoRendering = false
     renderStartedTime = null
@@ -954,58 +955,7 @@ async function func() {
         errCode: e
       })
     }
-    
-    renderStatus = ERenderStatus.NONE
-    isVideoRendering = false
-    renderStartedTime = null
-  })
 
-  socket.on(`extract_posters_from_youtube_file_start`, async (data) => {
-    isVideoRendering = true
-    let {
-      currentGroupKey,
-      rendererIndex,
-
-      targetFolderPath,
-      videoUrl,
-
-      posterImageFileName,
-      startTimes
-    } = data
-
-    console.log(data)
-
-    try {
-      await global.ClearTask()
-
-      if (!videoUrl) throw `ERR_INVALIDE_META_DATA`
-      await fsAsync.Mkdirp(targetFolderPath)
-
-      video.ResetProcessPercentage()
-      renderStatus = ERenderStatus.EXTRACT_POSTERS_FROM_YOUTUBE_FILE
-      renderStartedTime = Date.now()
-      ReportProgress(currentGroupKey, rendererIndex)
-
-      await video.ExtractPostersFromYoutubeFile({
-        targetFolderPath,
-        videoUrl,
-        posterImageFileName,
-        startTimes
-      })
-
-      socket.emit(`extract_posters_from_youtube_file_completed`, {
-        currentGroupKey,
-        errCode: null
-      })
-    }
-    catch (e) {
-      console.log(e)
-      socket.emit(`extract_posters_from_youtube_file_completed`, {
-        currentGroupKey,
-        errCode: e
-      })
-    }
-    
     renderStatus = ERenderStatus.NONE
     isVideoRendering = false
     renderStartedTime = null
@@ -1016,6 +966,12 @@ async function func() {
     let {
       currentGroupKey,
       rendererIndex,
+
+      targetFolderPath,
+      ytDlpCookiesPath,
+
+      yid,
+      meta
     } = data
 
     console.log(data)
@@ -1023,23 +979,21 @@ async function func() {
     try {
       await global.ClearTask()
 
-      // if (!(await AccessAsync(videoFilePath))) throw `ERR_NO_VIDEO_FILE`
-      // if (!meta || !meta.gif) throw `ERR_INVALIDE_META_DATA`
+      if (!yid) throw `ERR_INVALIDE_META_DATA`
+      await fsAsync.Mkdirp(targetFolderPath)
 
-      // // Rendered Frame Count 0으로 초기화 (렌더링 진행률 보고)
-      // video.ResetTotalRenderedFrameCount()
-      // renderStatus = ERenderStatus.GIF
-      // renderStartedTime = Date.now()
-      // ReportProgress(currentGroupKey, rendererIndex)
+      video.ResetProcessPercentage()
+      renderStatus = ERenderStatus.GENERATE_YOUTUBE_SHORTS
+      renderStartedTime = Date.now()
+      ReportProgress(currentGroupKey, rendererIndex)
 
-      // const duration = Number(meta.gif.duration)
-      // const startTimeSec = Number(meta.gif.startPoint)
-      // const scaleWidth = meta.gif.scaleWidth ? meta.gif.scaleWidth : 'iw/2'
-      // const scaleHeight = meta.gif.scaleHeight ? meta.gif.scaleHeight : 'ih/2'
-      // const outputPath = path.dirname(videoFilePath)
-      // const frameRate = meta.gif.frameRate ? Number(meta.gif.frameRate) : 12
+      await video.GenerateYoutubeShorts({
+        targetFolderPath,
+        ytDlpCookiesPath,
 
-      // await video.ExportGif(videoFilePath, outputPath, duration, startTimeSec, scaleWidth, scaleHeight, frameRate)
+        yid,
+        meta
+      })
 
       socket.emit(`generate_youtube_shorts_completed`, {
         currentGroupKey,
@@ -1053,7 +1007,7 @@ async function func() {
         errCode: e
       })
     }
-    
+
     renderStatus = ERenderStatus.NONE
     isVideoRendering = false
     renderStartedTime = null

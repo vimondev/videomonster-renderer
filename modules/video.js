@@ -603,30 +603,38 @@ exports.GenerateYoutubeShorts = async ({
     const startTime = Date.now()
     console.log(`Downloading source video...`)
 
-    let sourceVideoPath = `${localDir}/source.webm`
-    try {
-        await ytDlp.Exec([
-            '-f', 'bv*[height=1080][ext=webm]+ba[ext=webm]/b[height=1080][ext=webm][vcodec^=vp9]',
-            '-o', sourceVideoPath,
-            `https://www.youtube.com/watch?v=${yid}`
-        ], ytDlpCookiesPath)
-    }
-    catch (e) {
-        console.error(e)
-        console.log(`Source video download failed. retry with MP4 format..`)
-
+    const DownloadSourceVideo = async (yid, dir, format, resolution) => {
+        const localVideoFilePath = `${dir}/source_${resolution}.${format}`
         try {
-            sourceVideoPath = `${localDir}/source.mp4`
+            let filter
+            if (format === 'webm') {
+                filter = `bv*[height=${resolution}][ext=webm]+ba[ext=webm]/b[height=${resolution}][ext=webm][vcodec^=vp9]`
+            }
+            else {
+                filter = `bv*[height=${resolution}][ext=mp4][vcodec^=avc1]+ba[ext=m4a]/b[height=${resolution}][ext=mp4][vcodec^=avc1]`
+            }
+
             await ytDlp.Exec([
-                '-f', 'bv*[height=1080][ext=mp4][vcodec^=avc1]+ba[ext=m4a]/b[height=1080][ext=mp4][vcodec^=avc1]',
-                '-o', sourceVideoPath,
+                '-f', filter,
+                '-o', localVideoFilePath,
                 `https://www.youtube.com/watch?v=${yid}`
             ], ytDlpCookiesPath)
+
+            return localVideoFilePath
         }
         catch (e) {
             console.error(e)
-            throw new Error(`ERR_SOURCE_VIDEO_DOWNLOAD_FAILED`)
+            return null
         }
+    }
+
+    const sourceVideoPath = (await DownloadSourceVideo(yid, localDir, 'mp4', 1080) ||
+        await DownloadSourceVideo(yid, localDir, 'webm', 1080) ||
+        await DownloadSourceVideo(yid, localDir, 'mp4', 720) ||
+        await DownloadSourceVideo(yid, localDir, 'webm', 720))
+
+    if (!sourceVideoPath) {
+        throw new Error(`ERR_SOURCE_VIDEO_DOWNLOAD_FAILED`)
     }
 
     console.log(`Source video downloaded.`)

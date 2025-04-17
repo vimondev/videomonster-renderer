@@ -395,11 +395,50 @@ async function func() {
   // Video Rendering 수행 여부 확인
   socket.on(`is_stopped_video_rendering`, async data => {
     const { currentGroupKey } = data
+
     if (isVideoRendering == false) {
-      socket.emit(`video_render_completed`, {
-        currentGroupKey,
-        errCode: `ERR_VIDEO_RENDER_STOPPED`
-      })
+      switch (renderStatus) {
+        case ERenderStatus.GIF:
+          socket.emit(`gif_render_completed`, {
+            currentGroupKey,
+            errCode: `ERR_GIF_RENDER_STOPPED`
+          })
+          break
+        case ERenderStatus.DOWNLOAD_YOUTUBE_METADATA:
+          socket.emit(`youtube_metadata_download_completed`, {
+            currentGroupKey,
+            errCode: `ERR_YOUTUBE_METADATA_DOWNLOAD_STOPPED`
+          })
+          break
+        case ERenderStatus.EXTRACT_THUMBNAILS_FROM_YOUTUBE_FILE:
+          socket.emit(`extract_thumbnails_from_youtube_file_completed`, {
+            currentGroupKey,
+            errCode: `ERR_EXTRACT_THUMBNAILS_FROM_YOUTUBE_FILE_STOPPED`
+          })
+          break
+        case ERenderStatus.SPLIT_AUDIO_FILES:
+          socket.emit(`split_audio_files_completed`, {
+            currentGroupKey,
+            errCode: `ERR_SPLIT_AUDIO_FILES_STOPPED`
+          })
+          break
+        case ERenderStatus.GENERATE_YOUTUBE_SHORTS:
+          socket.emit(`generate_youtube_shorts_completed`, {
+            currentGroupKey,
+            errCode: `ERR_GENERATE_YOUTUBE_SHORTS_STOPPED`
+          })
+          break
+
+        case ERenderStatus.AUDIO:
+        case ERenderStatus.VIDEO:
+        case ERenderStatus.MAKEMP4:
+        default:
+          socket.emit(`video_render_completed`, {
+            currentGroupKey,
+            errCode: `ERR_VIDEO_RENDER_STOPPED`
+          })
+          break
+      }
     }
   })
 

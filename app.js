@@ -404,24 +404,21 @@ async function func() {
             errCode: `ERR_GIF_RENDER_STOPPED`
           })
           break
-        case ERenderStatus.DOWNLOAD_YOUTUBE_METADATA:
-          socket.emit(`youtube_metadata_download_completed`, {
-            currentGroupKey,
-            errCode: `ERR_YOUTUBE_METADATA_DOWNLOAD_STOPPED`
-          })
-          break
+
         case ERenderStatus.EXTRACT_THUMBNAILS_FROM_YOUTUBE_FILE:
           socket.emit(`extract_thumbnails_from_youtube_file_completed`, {
             currentGroupKey,
             errCode: `ERR_EXTRACT_THUMBNAILS_FROM_YOUTUBE_FILE_STOPPED`
           })
           break
+
         case ERenderStatus.SPLIT_AUDIO_FILES:
           socket.emit(`split_audio_files_completed`, {
             currentGroupKey,
             errCode: `ERR_SPLIT_AUDIO_FILES_STOPPED`
           })
           break
+
         case ERenderStatus.GENERATE_YOUTUBE_SHORTS:
           socket.emit(`generate_youtube_shorts_completed`, {
             currentGroupKey,
@@ -669,7 +666,6 @@ async function func() {
           })
           break
 
-        case ERenderStatus.DOWNLOAD_YOUTUBE_PREVIEW_FILES:
         case ERenderStatus.GENERATE_YOUTUBE_SHORTS:
           socket.emit(`report_progress`, {
             currentGroupKey,
@@ -833,114 +829,6 @@ async function func() {
     }
 
     isMerging = false
-  })
-
-  socket.on(`youtube_metadata_download_start`, async (data) => {
-    isVideoRendering = true
-    let {
-      currentGroupKey,
-      rendererIndex,
-
-      targetFolderPath,
-      ytDlpCookiesPath,
-
-      metadataJsonFileName,
-      yid
-    } = data
-
-    console.log(data)
-
-    try {
-      await global.ClearTask()
-
-      if (!yid) throw `ERR_INVALIDE_META_DATA`
-      await fsAsync.Mkdirp(targetFolderPath)
-
-      video.ResetProcessPercentage()
-      renderStatus = ERenderStatus.DOWNLOAD_YOUTUBE_METADATA
-      renderStartedTime = Date.now()
-      ReportProgress(currentGroupKey, rendererIndex)
-
-      await video.DownloadYoutubeMetadata({
-        targetFolderPath,
-        ytDlpCookiesPath,
-
-        metadataJsonFileName,
-        yid
-      })
-
-      socket.emit(`youtube_metadata_download_completed`, {
-        currentGroupKey,
-        errCode: null
-      })
-    }
-    catch (e) {
-      console.log(e)
-      socket.emit(`youtube_metadata_download_completed`, {
-        currentGroupKey,
-        errCode: e
-      })
-    }
-
-    renderStatus = ERenderStatus.NONE
-    isVideoRendering = false
-    renderStartedTime = null
-  })
-
-  socket.on(`youtube_preview_files_download_start`, async (data) => {
-    isVideoRendering = true
-    let {
-      currentGroupKey,
-      rendererIndex,
-
-      targetFolderPath,
-      ytDlpCookiesPath,
-
-      videoFileName,
-      audioFileName,
-
-      yid
-    } = data
-
-    console.log(data)
-
-    try {
-      await global.ClearTask()
-
-      if (!yid) throw `ERR_INVALIDE_META_DATA`
-      await fsAsync.Mkdirp(targetFolderPath)
-
-      video.ResetProcessPercentage()
-      renderStatus = ERenderStatus.DOWNLOAD_YOUTUBE_PREVIEW_FILES
-      renderStartedTime = Date.now()
-      ReportProgress(currentGroupKey, rendererIndex)
-
-      await video.DownloadYoutubePreviewFiles({
-        targetFolderPath,
-        ytDlpCookiesPath,
-
-        videoFileName,
-        audioFileName,
-
-        yid
-      })
-
-      socket.emit(`youtube_preview_files_download_completed`, {
-        currentGroupKey,
-        errCode: null
-      })
-    }
-    catch (e) {
-      console.log(e)
-      socket.emit(`youtube_preview_files_download_completed`, {
-        currentGroupKey,
-        errCode: e
-      })
-    }
-
-    renderStatus = ERenderStatus.NONE
-    isVideoRendering = false
-    renderStartedTime = null
   })
 
   socket.on(`extract_thumbnails_from_youtube_file_start`, async (data) => {

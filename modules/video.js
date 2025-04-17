@@ -509,10 +509,12 @@ exports.GenerateYoutubeShorts = async ({
         }
     }
 
-    const sourceVideoPath = (await DownloadSourceVideo(yid, localDir, 'mp4', 1080) ||
+    const sourceVideoPath = (
+        await DownloadSourceVideo(yid, localDir, 'mp4', 1080) ||
         await DownloadSourceVideo(yid, localDir, 'webm', 1080) ||
         await DownloadSourceVideo(yid, localDir, 'mp4', 720) ||
-        await DownloadSourceVideo(yid, localDir, 'webm', 720))
+        await DownloadSourceVideo(yid, localDir, 'webm', 720)
+    )
 
     if (!sourceVideoPath) {
         throw new Error(`ERR_SOURCE_VIDEO_DOWNLOAD_FAILED`)

@@ -315,8 +315,10 @@ const SpawnFFMpeg = (args, renderedFrameCallback = null) => {
             const spawn = require(`child_process`).spawn,
                 ls = spawn(`cmd`, [`/c`, `ffmpeg`, ...args], { cwd: ffmpegPath })
 
+            let log = ``
             ls.stdout.on('data', function (data) {
                 console.log('stdout: ' + data)
+                log += String(data)
                 if (typeof renderedFrameCallback === `function`) {
                     const str = String(data)
                     if (str.includes(`frame=`) && str.includes(`fps`)) {
@@ -330,6 +332,7 @@ const SpawnFFMpeg = (args, renderedFrameCallback = null) => {
 
             ls.stderr.on('data', function (data) {
                 console.log('stderr: ' + data)
+                log += String(data)
                 if (typeof fpsCallback === `function`) {
                     const str = String(data)
                     if (str.includes(`frame=`) && str.includes(`fps`)) {
@@ -342,7 +345,12 @@ const SpawnFFMpeg = (args, renderedFrameCallback = null) => {
             })
 
             ls.on('exit', async function (code) {
-                resolve(code)
+                if (code === 0) {
+                    resolve()
+                }
+                else {
+                    reject(`ERR_FFMPEG_PROCESS_FAILED (LOG : ${log})`)
+                }
             })
         }
         catch (e) {
@@ -372,7 +380,7 @@ exports.ExtractThumbnailsFromYoutubeFile = async ({
     const localPreviewImageFilePath = `${localDownloadDir}/${previewImageFileName}%d.jpg`
     await SpawnFFMpeg([
         '-i', localVideoFilePath,
-        '-vf', 'fps=1/2,scale=-2:96',
+        '-vf', 'fps=1/2,scale=-2:120',
         localPreviewImageFilePath,
         '-y',
     ])
@@ -434,14 +442,14 @@ exports.SplitAudioFiles = async ({
         targetTimes.push({
             startTime,
             endTime,
-            splittedAudioFilePath: `${localDir}/${splittedAudioFileName}${index}${extname}`
+            splittedAudioFilePath: `${targetFolderPath}/${splittedAudioFileName}${index}${extname}`
         })
 
         if (isEnd) break
         index++
     }
 
-    const localSplittedAudioFilePaths = await Promise.all(
+    const targetCopySplittedAudioFilePaths = await Promise.all(
         targetTimes.map(async ({ startTime, endTime, splittedAudioFilePath }) => {
             await SpawnFFMpeg([
                 '-i', localAudioFilePath,
@@ -455,12 +463,9 @@ exports.SplitAudioFiles = async ({
         })
     )
 
-    const targetCopySplittedAudioFilePaths = localSplittedAudioFilePaths.map(localSplittedAudioFilePath => `${targetFolderPath}/${path.basename(localSplittedAudioFilePath)}`)
-    await Promise.all(localSplittedAudioFilePaths.map((localSplittedAudioFilePath, i) => fsAsync.CopyFileAsync(localSplittedAudioFilePath, targetCopySplittedAudioFilePaths[i])))
-
     for (let i = 0; i < targetCopySplittedAudioFilePaths.length; i++) {
         if (!(await retryBoolean(AccessAsync(targetCopySplittedAudioFilePaths[i])))) {
-            throw new Error(`ERR_COPY_SPLITTED_AUDIO_FILE_FAILED`)
+            throw new Error(`ERR_SPLIT_AUDIO_FILE_FAILED`)
         }
     }
 }
@@ -677,7 +682,7 @@ exports.GenerateYoutubeShorts = async ({
     filters.push(`[background]${videoMapVariable}overlay=x=${x}:y=${y}${nextVideoMapVariable}`)
     videoMapVariable = nextVideoMapVariable
 
-    inputFileArguments.push(...['-i', `${targetFolderPath}/topic.png`])
+    inputFileArguments.push(...['-i', topicText.filepath])
     nextVideoMapVariable = `[overlay_video_${getInputFileCount(inputFileArguments)}]`
     filters.push(`[${getInputFileCount(inputFileArguments)}:v]fps=30,scale=${topicText.width}:${topicText.height}[topic]`)
     filters.push(`${videoMapVariable}[topic]overlay=x=${topicText.left}:y=${topicText.top}${nextVideoMapVariable}`)
@@ -724,7 +729,7 @@ exports.GenerateYoutubeShorts = async ({
 
     const totalFrameCount = currentDuration * 30
 
-    const resultVideoPath = `${localDir}/result.mp4`
+    const resultVideoPath = `${targetFolderPath}/result.mp4`
     await SpawnFFMpeg([
         ...inputFileArguments,
         '-filter_complex',
@@ -745,22 +750,16 @@ exports.GenerateYoutubeShorts = async ({
     const resultThumbnailPath = `${targetFolderPath}/result.jpg`
     await SpawnFFMpeg([
         '-i', resultVideoPath,
-        '-ss', '00:00:01',
+        '-ss', '00:00:00.100',
         '-vframes', '1',
         resultThumbnailPath,
         '-y'
     ])
 
-    const targetResultVideoPath = `${targetFolderPath}/result.mp4`
-    await fsAsync.CopyFileAsync(resultVideoPath, targetResultVideoPath)
-
-    const targetResultThumbnailPath = `${targetFolderPath}/result.jpg`
-    await fsAsync.CopyFileAsync(resultThumbnailPath, targetResultThumbnailPath)
-
-    if (!(await retryBoolean(AccessAsync(targetResultVideoPath)))) {
+    if (!(await retryBoolean(AccessAsync(resultVideoPath)))) {
         throw new Error(`ERR_YOUTUBE_SHORTS_RESULT_VIDEO_NOT_EXIST`)
     }
-    if (!(await retryBoolean(AccessAsync(targetResultThumbnailPath)))) {
+    if (!(await retryBoolean(AccessAsync(resultThumbnailPath)))) {
         throw new Error(`ERR_YOUTUBE_SHORTS_RESULT_THUMBNAIL_NOT_EXIST`)
     }
 

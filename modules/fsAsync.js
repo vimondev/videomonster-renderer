@@ -1,8 +1,8 @@
 const fs = require('fs')
 const { promisify } = require('util')
 
-const WriteFileAsync = (path, data) => {
-    return promisify(fs.writeFile)(path, data)
+const WriteFileAsync = (path, data, options) => {
+    return promisify(fs.writeFile)(path, data, options)
 }
 exports.WriteFileAsync = WriteFileAsync
 
@@ -33,9 +33,9 @@ const IsExistAsync = (path) => {
 }
 exports.IsExistAsync = IsExistAsync
 
-const ReadFileAsync = (path) => {
+const ReadFileAsync = (path, options) => {
     return new Promise((resolve, reject) => {
-        fs.readFile(path, (err, data) => {
+        fs.readFile(path, options, (err, data) => {
             if (err) reject(err)
             else resolve(data)
         })
@@ -102,6 +102,31 @@ const LstatAsync = (path) => {
     })
 }
 exports.LstatAsync = LstatAsync
+
+const MkdirAsync = async path => {
+    try {
+        await promisify(fs.mkdir)(path)
+    }
+    catch (e) {
+        if (e && e.code === 'EEXIST') return null
+        else throw e
+    }
+}
+exports.MkdirAsync = MkdirAsync
+
+const Mkdirp = async path => {
+    if (!path || path.length === 0) throw new Error('invalid path')
+    path = path.replace(/\\/gi, '/')
+
+    const paths = path.split('/')
+    let currentPath = ''
+    
+    for (let i=0; i<paths.length; i++) {
+        currentPath += `${paths[i]}/`
+        if (!(await IsExistAsync(currentPath))) await MkdirAsync(currentPath)
+    }
+}
+exports.Mkdirp = Mkdirp
 
 const GetFolderFileList = (path) => {
     return new Promise(async (resolve, reject) => {

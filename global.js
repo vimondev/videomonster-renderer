@@ -1,5 +1,6 @@
 const fs = require(`fs`)
 const path = require(`path`)
+const axios = require('axios')
 const config = require(`./config`)
 const {
     aerenderPath,
@@ -151,4 +152,23 @@ exports.retryBoolean = async callback => {
         }
     }
     throw new Error('CALLBACK EXECUTE FAILED!!')
+}
+
+exports.downloadFile = (destinationPath, url) => {
+    return new Promise(async (resolve, reject) => {
+        const writeStream = fs.createWriteStream(destinationPath)
+            .on('error', reject)
+            .on('finish', () => {
+                writeStream.close()
+                resolve()
+            })
+
+        try {
+            const { data } = await axios.get(url, { responseType: 'stream' })
+            data.pipe(writeStream)
+        }
+        catch (e) {
+            reject(e)
+        }
+    })
 }

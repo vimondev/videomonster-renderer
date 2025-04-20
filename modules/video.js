@@ -1,4 +1,6 @@
 const fs = require(`fs`)
+const path = require(`path`)
+const AdmZip = require(`adm-zip`)
 const config = require(`../config`)
 const {
     localPath,
@@ -6,39 +8,41 @@ const {
     ffmpegPath
 } = config
 const fsAsync = require('./fsAsync')
-const { retry, retryBoolean, TaskKill } = require('../global')
+const ytDlp = require('./ytDlp')
+const ffprobe = require('./ffprobe')
+const { retry, retryBoolean, TaskKill, downloadFile } = require('../global')
 
-function AccessAsync(path) {
+function AccessAsync(_path) {
     return new Promise((resolve, reject) => {
-        fs.access(path, err => {
+        fs.access(_path, err => {
             if (err) resolve(false)
             else resolve(true)
         })
     })
 }
 
-function ReadDirAsync(path) {
+function ReadDirAsync(_path) {
     return new Promise((resolve, reject) => {
-        fs.readdir(path, (err, files) => {
+        fs.readdir(_path, (err, files) => {
             if (err) reject(err)
             else resolve(files)
         })
     })
 }
 
-function UnlinkAsync(path) {
+function UnlinkAsync(_path) {
     return new Promise((resolve, reject) => {
-        fs.unlink(path, err => {
+        fs.unlink(_path, err => {
             if (err) reject(err)
             else resolve()
         })
     })
 }
 
-function MkdirAsync(path) {
+function MkdirAsync(_path) {
     return new Promise((resolve, reject) => {
-        fs.mkdir(path, err => {
-            if(err) reject(err)
+        fs.mkdir(_path, err => {
+            if (err) reject(err)
             else resolve()
         })
     })
@@ -53,9 +57,9 @@ function RenameAsync(oldPath, newPath) {
     })
 }
 
-function WriteFileAsync(path, data) {
+function WriteFileAsync(_path, data) {
     return new Promise((resolve, reject) => {
-        fs.writeFile(path, data, err => {
+        fs.writeFile(_path, data, err => {
             if (err) reject(err)
             else resolve()
         })
@@ -68,14 +72,24 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 let totalRenderedFrameCount = 0     // aerender 프로세스로 렌더링 된 프레임 개수
 let totalConvertedFrameCount = 0    // ffmpeg 프로세스로 h264로 인코딩된 프레임 개수
 
+let processPercentage = 0
+
 // 초기화
 exports.ResetTotalRenderedFrameCount = () => {
     totalRenderedFrameCount = 0
     totalConvertedFrameCount = 0
 }
 
+exports.ResetProcessPercentage = () => {
+    processPercentage = 0
+}
+
 exports.GetTotalRenderedFrameCount = () => {
     return (totalRenderedFrameCount + totalConvertedFrameCount) / 2
+}
+
+exports.GetProcessPercentage = () => {
+    return processPercentage
 }
 
 // 오디오 렌더링
@@ -184,7 +198,7 @@ exports.VideoRender = (rendererIndex, aepPath, startFrame, endFrame, hashTagStri
 
                     // 각 frame 렌더링에 걸린 시간을 계산하여 frameDuration에 저장한다.
                     const frame = data.substring(startIndex, endIndex)
-                    if(!isNaN(Number(frame))) {
+                    if (!isNaN(Number(frame))) {
                         totalRenderedFrameCount = Number(frame)
 
                         const remainMs = Date.now() - nowTime
@@ -253,9 +267,9 @@ exports.ExportGif = (videoFilePath, outputPath, duration, startTimeSec = 0, scal
                     `-r`, `${frameRate}`,
                     `-vf`, `scale=${scaleWidth}:${scaleHeight}`,
                     `-loop`, `${loop}`,
-                    outputFilePath, 
+                    outputFilePath,
                     `-y`,
-                    ], {
+                ], {
                     cwd: ffmpegPath
                 })
 
@@ -295,6 +309,463 @@ exports.ExportGif = (videoFilePath, outputPath, duration, startTimeSec = 0, scal
     })
 }
 
+const SpawnFFMpeg = (args, renderedFrameCallback = null) => {
+    return new Promise((resolve, reject) => {
+        try {
+            const spawn = require(`child_process`).spawn,
+                ls = spawn(`cmd`, [`/c`, `ffmpeg`, ...args], { cwd: ffmpegPath })
+
+            let log = ``
+            ls.stdout.on('data', function (data) {
+                console.log('stdout: ' + data)
+                log += String(data)
+                if (typeof renderedFrameCallback === `function`) {
+                    const str = String(data)
+                    if (str.includes(`frame=`) && str.includes(`fps`)) {
+                        const startIndex = str.indexOf(`frame=`, 0) + 6
+                        const endIndex = str.indexOf(`fps`)
+    
+                        renderedFrameCallback(Number(str.substring(startIndex, endIndex)))
+                    }
+                }
+            })
+
+            ls.stderr.on('data', function (data) {
+                console.log('stderr: ' + data)
+                log += String(data)
+                if (typeof fpsCallback === `function`) {
+                    const str = String(data)
+                    if (str.includes(`frame=`) && str.includes(`fps`)) {
+                        const startIndex = str.indexOf(`frame=`, 0) + 6
+                        const endIndex = str.indexOf(`fps`)
+    
+                        fpsCallback(Number(str.substring(startIndex, endIndex)))
+                    }
+                }
+            })
+
+            ls.on('exit', async function (code) {
+                if (code === 0) {
+                    resolve()
+                }
+                else {
+                    reject(`ERR_FFMPEG_PROCESS_FAILED (LOG : ${log})`)
+                }
+            })
+        }
+        catch (e) {
+            console.log(e)
+            reject(`ERR_SPAWN_FFMPEG_FAILED (FFMPEG 프로세스 생성 실패)`)
+        }
+    })
+}
+
+exports.ExtractThumbnailsFromYoutubeFile = async ({
+    targetFolderPath,
+    videoUrl,
+    previewImageFileName,
+}) => {
+    const localDownloadDir = `${localPath}/extract-thumbnails-from-youtube-file`
+    if (await fsAsync.IsExistAsync(localDownloadDir)) await fsAsync.UnlinkFolderRecursiveIgnoreError(localDownloadDir)
+    await fsAsync.Mkdirp(localDownloadDir)
+
+    const videoFileName = path.basename(videoUrl)
+    const localVideoFilePath = `${localDownloadDir}/${videoFileName}`
+
+    await downloadFile(localVideoFilePath, videoUrl)
+    if (!(await retryBoolean(AccessAsync(localVideoFilePath)))) {
+        throw new Error(`ERR_DOWNLOAD_VIDEO_FILE_FAILED`)
+    }
+
+    const localPreviewImageFilePath = `${localDownloadDir}/${previewImageFileName}%d.jpg`
+    await SpawnFFMpeg([
+        '-i', localVideoFilePath,
+        '-vf', 'fps=1/2,scale=-2:120',
+        localPreviewImageFilePath,
+        '-y',
+    ])
+
+    const localPreviewImageFileNames = await ReadDirAsync(localDownloadDir)
+    if (localPreviewImageFileNames.length === 0) {
+        throw new Error(`ERR_EXTRACT_THUMBNAILS_FROM_YOUTUBE_FILE_FAILED`)
+    }
+
+    const zip = new AdmZip()
+    localPreviewImageFileNames.forEach(localPreviewImageFileName => {
+        zip.addLocalFile(`${localDownloadDir}/${localPreviewImageFileName}`)
+    })
+
+    const targetZipFilePath = `${targetFolderPath}/thumbnails.zip`
+    const result = await zip.writeZipPromise(targetZipFilePath, { overwrite: true })
+    if (!result || !(await retryBoolean(AccessAsync(targetZipFilePath)))) {
+        throw new Error(`ERR_WRITE_ZIP_FILE_FAILED`)
+    }
+}
+
+exports.SplitAudioFiles = async ({
+    targetFolderPath,
+    audioUrl,
+
+    startTime: inputStartTime,
+    endTime: inputEndTime,
+
+    segmentDuration,
+    overlapDuration,
+
+    splittedAudioFileName,
+}) => {
+    const localDir = `${localPath}/split-audio-files`
+    if (await fsAsync.IsExistAsync(localDir)) await fsAsync.UnlinkFolderRecursiveIgnoreError(localDir)
+    await fsAsync.Mkdirp(localDir)
+
+    const audioFileName = path.basename(audioUrl)
+    const extname = path.extname(audioFileName)
+    const localAudioFilePath = `${localDir}/${audioFileName}`
+
+    await downloadFile(localAudioFilePath, audioUrl)
+    if (!(await retryBoolean(AccessAsync(localAudioFilePath)))) {
+        throw new Error(`ERR_DOWNLOAD_AUDIO_FILE_FAILED`)
+    }
+
+    const targetTimes = []
+    let index = 0
+    
+    while (true) {
+        const startTime = inputStartTime + index * segmentDuration
+        let endTime = startTime + segmentDuration + overlapDuration
+
+        let isEnd = false
+        if (endTime > inputEndTime) {
+            endTime = inputEndTime
+            isEnd = true
+        }
+        targetTimes.push({
+            startTime,
+            endTime,
+            splittedAudioFilePath: `${targetFolderPath}/${splittedAudioFileName}${index}${extname}`
+        })
+
+        if (isEnd) break
+        index++
+    }
+
+    const targetCopySplittedAudioFilePaths = await Promise.all(
+        targetTimes.map(async ({ startTime, endTime, splittedAudioFilePath }) => {
+            await SpawnFFMpeg([
+                '-i', localAudioFilePath,
+                '-ss', startTime.toString(),
+                '-to', endTime.toString(),
+                '-c:a', 'copy',
+                `${splittedAudioFilePath}`, `-y`
+            ])
+
+            return splittedAudioFilePath
+        })
+    )
+
+    for (let i = 0; i < targetCopySplittedAudioFilePaths.length; i++) {
+        if (!(await retryBoolean(AccessAsync(targetCopySplittedAudioFilePaths[i])))) {
+            throw new Error(`ERR_SPLIT_AUDIO_FILE_FAILED`)
+        }
+    }
+}
+
+exports.GenerateYoutubeShorts = async ({
+    targetFolderPath,
+    ytDlpCookiesPath,
+
+    meta: {
+        yid,
+        texts = [],
+        layout = 'Layout01',
+        volume = 1,
+        playbackSpeed = 1
+    }
+}) => {
+    const localDir = `${localPath}/generate-youtube-shorts`
+    if (await fsAsync.IsExistAsync(localDir)) await fsAsync.UnlinkFolderRecursiveIgnoreError(localDir)
+    await fsAsync.Mkdirp(localDir)
+
+    const startTime = Date.now()
+    console.log(`Downloading source video...`)
+
+    const DownloadSourceVideo = async (yid, dir, format, resolution) => {
+        const localVideoFilePath = `${dir}/source_${resolution}.${format}`
+        try {
+            let filter
+            if (format === 'webm') {
+                filter = `bv*[height=${resolution}][ext=webm]+ba[ext=webm]/b[height=${resolution}][ext=webm][vcodec^=vp9]`
+            }
+            else {
+                filter = `bv*[height=${resolution}][ext=mp4][vcodec^=avc1]+ba[ext=m4a]/b[height=${resolution}][ext=mp4][vcodec^=avc1]`
+            }
+
+            await ytDlp.Exec([
+                '-f', filter,
+                '-o', localVideoFilePath,
+                `https://www.youtube.com/watch?v=${yid}`
+            ], ytDlpCookiesPath)
+
+            return localVideoFilePath
+        }
+        catch (e) {
+            console.error(e)
+            return null
+        }
+    }
+
+    const sourceVideoPath = (
+        await DownloadSourceVideo(yid, localDir, 'mp4', 1080) ||
+        await DownloadSourceVideo(yid, localDir, 'webm', 1080) ||
+        await DownloadSourceVideo(yid, localDir, 'mp4', 720) ||
+        await DownloadSourceVideo(yid, localDir, 'webm', 720)
+    )
+
+    if (!sourceVideoPath) {
+        throw new Error(`ERR_SOURCE_VIDEO_DOWNLOAD_FAILED`)
+    }
+
+    console.log(`Source video downloaded.`)
+    let sourceVideoWidth = 1920
+    let sourceVideoHeight = 1080
+
+    const { streams } = await ffprobe(sourceVideoPath)
+    const videoStream = streams.find(stream => stream.codec_type === 'video')
+
+    if (videoStream) {
+        sourceVideoWidth = Number(videoStream.width)
+        sourceVideoHeight = Number(videoStream.height)
+    }
+
+    console.log(`Calculating...`)
+    const clips = []
+
+    const topicText = texts.find(text => text.type === 'topic-text')
+    const otherTexts = texts.filter(text => text.type !== 'topic-text')
+
+    for (let i = 0; i < otherTexts.length; i++) {
+        const currentList = []
+
+        let start = otherTexts[i].start
+        let end = otherTexts[i].end
+
+        // 다음 캡션들과 1초 이하로 이어지면 묶어서 재생
+        while (
+            i + 1 < otherTexts.length &&
+            otherTexts[i + 1].start - end <= 1
+        ) {
+            currentList.push(otherTexts[i])
+
+            end = otherTexts[i + 1].end
+            i++
+        }
+        currentList.push(otherTexts[i])
+
+        clips.push({
+            start,
+            end,
+            duration: end - start,
+            list: currentList
+        })
+    }
+
+    const sourceAspectRatio = sourceVideoWidth / sourceVideoHeight
+    const outputVideoWidth = 1080
+    const outputVideoHeight = 1920
+
+    const REF_VALUE = outputVideoWidth
+    const inputFileArguments = []
+    const filters = []
+
+    const getInputFileCount = args => {
+        return args.filter(arg => arg.startsWith('-i')).length - 1
+    }
+
+    inputFileArguments.push(...['-i', sourceVideoPath])
+    inputFileArguments.push(...['-i', `${__dirname}/sources/black.png`])
+
+    let videoMapVariable = '[0:v]'
+    let audioMapVariable = '[0:a]'
+
+    let nextVideoMapVariable = '[merged_video]'
+    let nextAudioMapVariable = '[merged_audio]'
+    filters.push(clips.map((clip, i) => `${videoMapVariable}trim=start=${clip.start}:end=${clip.end},setpts=PTS-STARTPTS[v${i}];${audioMapVariable}atrim=start=${clip.start}:end=${clip.end},asetpts=PTS-STARTPTS[a${i}]`).join(';') + `;${clips.map((clip, i) => `[v${i}][a${i}]`).join('')}concat=n=${clips.length}:v=1:a=1${nextVideoMapVariable}${nextAudioMapVariable}`)
+    videoMapVariable = nextVideoMapVariable
+    audioMapVariable = nextAudioMapVariable
+
+    let x = 0
+    let y = 0
+    let width = REF_VALUE
+    let height = REF_VALUE
+
+    let needToCrop = false
+    nextVideoMapVariable = '[cropped_video]'
+    switch (layout) {
+        case 'Layout02':
+            {
+                width = outputVideoWidth
+                height = outputVideoHeight
+                x = 0
+                y = 0
+                needToCrop = true
+            }
+            break
+
+        case 'Layout03':
+            {
+                width = REF_VALUE
+                height = REF_VALUE
+                x = 0
+                y = outputVideoHeight * 0.075
+                needToCrop = true
+            }
+            break
+
+        case 'Layout04':
+            {
+                width = REF_VALUE
+                height = REF_VALUE
+                x = 0
+                y = (outputVideoHeight - height) / 2
+                needToCrop = true
+            }
+            break
+
+        case 'Layout05':
+            {
+                width = REF_VALUE
+                height = REF_VALUE
+                x = 0
+                y = outputVideoHeight - REF_VALUE - outputVideoHeight * 0.075
+                needToCrop = true
+            }
+            break
+
+        case 'Layout06':
+            {
+                width = REF_VALUE
+                height = REF_VALUE
+                x = 0
+                y = outputVideoHeight * 0.15
+                needToCrop = true
+            }
+            break
+
+        case 'Layout01':
+        default:
+            {
+                width = REF_VALUE
+                height = REF_VALUE / sourceAspectRatio
+                x = 0
+                y = (outputVideoHeight - (REF_VALUE / sourceAspectRatio)) / 2
+            }
+            break
+    }
+    if (needToCrop) {
+        if (sourceAspectRatio > 1) {
+            const scaledWidth = sourceVideoWidth * (height / sourceVideoHeight)
+            filters.push(`${videoMapVariable}fps=30,scale=${scaledWidth}:${height},crop=${width}:${height}:${scaledWidth / 2 - width / 2}:${0}${nextVideoMapVariable}`)
+        }
+        else {
+            const scaledHeight = sourceVideoHeight * (width / sourceVideoWidth)
+            filters.push(`${videoMapVariable}fps=30,scale=${width}:${scaledHeight},crop=${width}:${scaledHeight}:${0}:${scaledHeight / 2 - height / 2}${nextVideoMapVariable}`)
+        }
+    }
+    else {
+        filters.push(`${videoMapVariable}fps=30,scale=${width}:${height}${nextVideoMapVariable}`)
+    }
+
+    videoMapVariable = nextVideoMapVariable
+
+    nextVideoMapVariable = '[overlay_video]'
+    filters.push(`[1:v]fps=30,scale=${outputVideoWidth}:${outputVideoHeight}[background]`)
+    filters.push(`[background]${videoMapVariable}overlay=x=${x}:y=${y}${nextVideoMapVariable}`)
+    videoMapVariable = nextVideoMapVariable
+
+    inputFileArguments.push(...['-i', topicText.filepath])
+    nextVideoMapVariable = `[overlay_video_${getInputFileCount(inputFileArguments)}]`
+    filters.push(`[${getInputFileCount(inputFileArguments)}:v]fps=30,scale=${topicText.width}:${topicText.height}[topic]`)
+    filters.push(`${videoMapVariable}[topic]overlay=x=${topicText.left}:y=${topicText.top}${nextVideoMapVariable}`)
+    videoMapVariable = nextVideoMapVariable
+
+    let currentDuration = 0
+    for (const clip of clips) {
+        const { start: clipStart, end: clipEnd, list } = clip
+
+        for (const text of list) {
+            const { filepath, start, end, left, top, width, height } = text
+
+            const textStart = start - clipStart + currentDuration
+            const textEnd = end - clipStart + currentDuration
+            inputFileArguments.push(...['-i', filepath])
+
+            const idx = getInputFileCount(inputFileArguments)
+            const textMapVariable = `[text_${idx}]`
+
+            nextVideoMapVariable = `[overlay_video_${idx}]`
+            filters.push(`[${idx}:v]fps=30,scale=${width}:${height}${textMapVariable}`)
+            filters.push(`${videoMapVariable}${textMapVariable}overlay=x=${left}:y=${top}:enable='between(t\\,${textStart},${textEnd})'${nextVideoMapVariable}`)
+            videoMapVariable = nextVideoMapVariable
+        }
+        currentDuration += (clipEnd - clipStart)
+    }
+
+    volume = Math.max(0, Math.min(2, volume))
+    nextAudioMapVariable = '[audio_volume_applied]'
+    filters.push(`${audioMapVariable}volume=${volume}${nextAudioMapVariable}`)
+    audioMapVariable = nextAudioMapVariable
+
+    playbackSpeed = Math.max(0.5, Math.min(2, playbackSpeed))
+    playbackSpeed -= playbackSpeed % 0.25
+    if (playbackSpeed !== 1) {
+        nextVideoMapVariable = '[video_speed_applied]'
+        filters.push(`${videoMapVariable}setpts=${1 / playbackSpeed}*PTS${nextVideoMapVariable}`)
+        videoMapVariable = nextVideoMapVariable
+
+        nextAudioMapVariable = '[audio_speed_applied]'
+        filters.push(`${audioMapVariable}atempo=${playbackSpeed}${nextAudioMapVariable}`)
+        audioMapVariable = nextAudioMapVariable
+    }
+
+    const totalFrameCount = currentDuration * 30
+
+    const resultVideoPath = `${targetFolderPath}/result.mp4`
+    await SpawnFFMpeg([
+        ...inputFileArguments,
+        '-filter_complex',
+        filters.join(';'),
+        '-map', videoMapVariable,
+        '-map', audioMapVariable,
+        '-c:v', 'libx264',
+        '-pix_fmt', 'yuv420p',
+        '-c:a', 'aac',
+        '-r', '30',
+        '-shortest',
+        resultVideoPath,
+        '-y'
+    ], renderedFrameCount => {
+        processPercentage = renderedFrameCount / totalFrameCount
+    })
+
+    const resultThumbnailPath = `${targetFolderPath}/result.jpg`
+    await SpawnFFMpeg([
+        '-i', resultVideoPath,
+        '-ss', '00:00:00.100',
+        '-vframes', '1',
+        resultThumbnailPath,
+        '-y'
+    ])
+
+    if (!(await retryBoolean(AccessAsync(resultVideoPath)))) {
+        throw new Error(`ERR_YOUTUBE_SHORTS_RESULT_VIDEO_NOT_EXIST`)
+    }
+    if (!(await retryBoolean(AccessAsync(resultThumbnailPath)))) {
+        throw new Error(`ERR_YOUTUBE_SHORTS_RESULT_THUMBNAIL_NOT_EXIST`)
+    }
+
+    console.log(`Generated shorts video in ${Date.now() - startTime}ms`)
+}
+
 // TIFF -> h264 인코딩
 exports.MakeMP4 = (rendererIndex, videoPath, hashTagString, frameRate, scaleFactor = undefined) => {
     return new Promise((resolve, reject) => {
@@ -308,7 +779,7 @@ exports.MakeMP4 = (rendererIndex, videoPath, hashTagString, frameRate, scaleFact
             // h264 인코딩을 수행한다.
             // const spawn = require(`child_process`).spawn,
             //     ls = spawn(`cmd`, [`/c`, `ffmpeg`, `-framerate`, `${frameRate}`, `-i`, `${localPath}/${rendererIndex}/frames%${digit}d.tif`, `-c:v`, `libx264`, `-pix_fmt`, `yuv420p`, `-r`, `${frameRate}`, `${videoPath}/out${rendererIndex}.mp4`, `-y`], { cwd: ffmpegPath })
-            
+
             let args
             if (scaleFactor > 0) args = [`/c`, `ffmpeg`, `-i`, `${localPath}/${rendererIndex}/out.avi`, `-vf`, `scale=iw*${scaleFactor}:ih*${scaleFactor}`, `-c:v`, `libx264`, `-pix_fmt`, `yuv420p`, `-r`, `${frameRate}`, `${videoPath}/out${rendererIndex}.mp4`, `-y`]
             else args = [`/c`, `ffmpeg`, `-i`, `${localPath}/${rendererIndex}/out.avi`, `-c:v`, `libx264`, `-pix_fmt`, `yuv420p`, `-r`, `${frameRate}`, `${videoPath}/out${rendererIndex}.mp4`, `-y`]
@@ -581,7 +1052,7 @@ async function FadeOutProc(inputAudioPath, outputAudioPath, startTime, fadeDurat
         console.log(`Audio Apply FadeOut Start! >> INPUT(${inputAudioPath}) OUTPUT(${outputAudioPath}) ST(${startTime}) FD(${fadeDuration}) VD(${videoDuration})`)
 
         let fadeOutStartTime = Number(startTime) + Number(videoDuration) - Number(fadeDuration)
-        if(isNaN(fadeOutStartTime)) fadeOutStartTime = 0
+        if (isNaN(fadeOutStartTime)) fadeOutStartTime = 0
 
         // 오디오 파일을 영상에 입혀준다. (AAC 코덱)
         const spawn = require(`child_process`).spawn,
@@ -613,7 +1084,7 @@ async function FadeOutProc(inputAudioPath, outputAudioPath, startTime, fadeDurat
             }
         })
     })
-}    
+}
 
 // Audio Fade In/Out 효과 적용
 exports.AudioFadeInOut = (audioPath, startTime, fadeDuration, videoDuration, volume) => {
@@ -920,7 +1391,7 @@ const _ResizeMP4 = (inputFilePath, outputFilePath, width, height, scaleFactor) =
 
             if (width % 2 === 1) width -= 1
             if (height % 2 === 1) height -= 1
-            
+
             const spawn = require(`child_process`).spawn,
                 ls = spawn(`cmd`, [`/c`, `ffmpeg`, `-i`, `${inputFilePath}`, `-vf`, `scale=${width}:${height}`, `-crf`, `30`, `${outputFilePath}`, `-y`], { cwd: ffmpegPath })
 
@@ -976,12 +1447,12 @@ exports.EncodeToMP4 = (inputVideoPath, outputVideoPath) => {
 
             const spawn = require(`child_process`).spawn,
                 ls = spawn(`cmd`, [
-                    `/c`, `ffmpeg`, 
-                    `-i`, `${inputVideoPath}`, 
-                    `-pix_fmt`, `yuv420p`, 
+                    `/c`, `ffmpeg`,
+                    `-i`, `${inputVideoPath}`,
+                    `-pix_fmt`, `yuv420p`,
                     `-crf`, `26`,
                     `-preset`, `veryfast`,
-                    `${outputVideoPath}`, 
+                    `${outputVideoPath}`,
                     `-y`
                 ], { cwd: ffmpegPath })
 
@@ -1028,11 +1499,11 @@ exports.Screenshot = (inputFilePath, outputFilePath) => {
 
             const spawn = require(`child_process`).spawn,
                 ls = spawn(`cmd`, [
-                    `/c`, `ffmpeg`, 
-                    `-i`, `${inputFilePath}`, 
-                    `-ss`, `00:00:00`, 
-                    `-vframes`, `1`, 
-                    `${outputFilePath}`, 
+                    `/c`, `ffmpeg`,
+                    `-i`, `${inputFilePath}`,
+                    `-ss`, `00:00:00`,
+                    `-vframes`, `1`,
+                    `${outputFilePath}`,
                     `-y`
                 ], { cwd: ffmpegPath })
 

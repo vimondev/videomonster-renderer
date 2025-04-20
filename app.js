@@ -31,24 +31,23 @@ async function func() {
   const git = require('simple-git')()
   require('dotenv').config()
 
+  const ytDlp = require('./modules/ytDlp')
+  await ytDlp.DownloadBinary()
+
   async function GetTargetRenderServerIp() {
     try {
-      const isStaticMachine = process.env.IS_STATIC_MACHINE === 'true'
-      const region = process.env.REGION
-      
-      const { current } = await git.status()
-      switch(current) {
-        case 'master':
-          // if (isStaticMachine)
-          if (region === 'US') return 'http://vmclientusstage.eastus.cloudapp.azure.com:3000'
-          return 'http://vmstage2023.koreacentral.cloudapp.azure.com:3000'
-          // return 'http://10.0.0.7:3000'
-        case 'dev':
-          // if (isStaticMachine)
-          return 'http://videomonster.iptime.org:3000'
-          // return 'http://10.0.0.19:3000'
+      // const isStaticMachine = process.env.IS_STATIC_MACHINE === 'true'
+      // const region = process.env.REGION
 
-        default: 
+      const { current } = await git.status()
+      switch (current) {
+        case 'master':
+          return 'http://vmstage2023.koreacentral.cloudapp.azure.com:3000'
+        case 'dev':
+          return 'http://vmdev2025.koreacentral.cloudapp.azure.com:3000'
+        // return 'http://videomonster.iptime.org:3000'
+
+        default:
           console.log(`[ERROR] Target Server Ip is null. (Branch : ${current})`)
           return null
       }
@@ -62,13 +61,13 @@ async function func() {
   async function CreateAndReadToken() {
     try {
       const tokenPath = 'C:/Users/Public/token.txt'
-      if(!await fsAsync.IsExistAsync(tokenPath)) {
+      if (!await fsAsync.IsExistAsync(tokenPath)) {
         await fsAsync.WriteFileAsync(tokenPath, uuid())
       }
       const token = await fsAsync.ReadFileAsync(tokenPath)
       return String(token)
     }
-    catch(e) {
+    catch (e) {
       console.log(e)
       return ""
     }
@@ -151,7 +150,7 @@ async function func() {
   }
 
   let renderServerIp = await GetTargetRenderServerIp()
-  if(!renderServerIp) console.log(`[Error] RenderServerIp not found.`)
+  if (!renderServerIp) console.log(`[Error] RenderServerIp not found.`)
 
   console.log(`start!`)
 
@@ -180,7 +179,7 @@ async function func() {
 
   console.log(`RendererId(${rendererid}) IsStaticMachine(${isStaticMachine}) TargetServer(${renderServerIp})`)
 
-  async function OnGifRenderStart (data) {
+  async function OnGifRenderStart(data) {
     isVideoRendering = true
     let {
       currentGroupKey,
@@ -230,7 +229,7 @@ async function func() {
     renderStartedTime = null
   }
 
-  async function OnVideoSourceEncodeStart (data) {
+  async function OnVideoSourceEncodeStart(data) {
     isSourceEncoding = true
     let {
       currentGroupKey,
@@ -268,7 +267,7 @@ async function func() {
       const { width: rW, height: rH } = image.CalMinResolution(512, 512, resolution.width, resolution.height)
       const resize = { width: Math.floor(rW), height: Math.floor(rH) }
       const uploadedFilePath = `${userSourceUploadPath}/${fileName}`
-      
+
       await video.EncodeToMP4(uploadedFilePath, videoFilePath)
       const screenshotFilePath = thumbnailFilePath.replace('thumb', 'screenshot')
       await video.Screenshot(videoFilePath, screenshotFilePath)
@@ -294,7 +293,7 @@ async function func() {
     renderStartedTime = null
   }
 
-  async function OnImageSourceEncodeStart (data) {
+  async function OnImageSourceEncodeStart(data) {
     isSourceEncoding = true
     let {
       currentGroupKey,
@@ -355,14 +354,14 @@ async function func() {
   }
 
   socket.on(`connect`, () => {
-      const data = {
-        type: 'videoclient',
-        rendererid,
-        isStaticMachine
-      }
-      console.log(`Connected!`)
-      console.log(data)
-      socket.emit(`regist`, data)
+    const data = {
+      type: 'videoclient',
+      rendererid,
+      isStaticMachine
+    }
+    console.log(`Connected!`)
+    console.log(data)
+    socket.emit(`regist`, data)
   })
 
   socket.on(`disconnect`, () => {
@@ -396,11 +395,47 @@ async function func() {
   // Video Rendering 수행 여부 확인
   socket.on(`is_stopped_video_rendering`, async data => {
     const { currentGroupKey } = data
+
     if (isVideoRendering == false) {
-      socket.emit(`video_render_completed`, {
-        currentGroupKey,
-        errCode: `ERR_VIDEO_RENDER_STOPPED`
-      })
+      switch (renderStatus) {
+        case ERenderStatus.GIF:
+          socket.emit(`gif_render_completed`, {
+            currentGroupKey,
+            errCode: `ERR_GIF_RENDER_STOPPED`
+          })
+          break
+
+        case ERenderStatus.EXTRACT_THUMBNAILS_FROM_YOUTUBE_FILE:
+          socket.emit(`extract_thumbnails_from_youtube_file_completed`, {
+            currentGroupKey,
+            errCode: `ERR_EXTRACT_THUMBNAILS_FROM_YOUTUBE_FILE_STOPPED`
+          })
+          break
+
+        case ERenderStatus.SPLIT_AUDIO_FILES:
+          socket.emit(`split_audio_files_completed`, {
+            currentGroupKey,
+            errCode: `ERR_SPLIT_AUDIO_FILES_STOPPED`
+          })
+          break
+
+        case ERenderStatus.GENERATE_YOUTUBE_SHORTS:
+          socket.emit(`generate_youtube_shorts_completed`, {
+            currentGroupKey,
+            errCode: `ERR_GENERATE_YOUTUBE_SHORTS_STOPPED`
+          })
+          break
+
+        case ERenderStatus.AUDIO:
+        case ERenderStatus.VIDEO:
+        case ERenderStatus.MAKEMP4:
+        default:
+          socket.emit(`video_render_completed`, {
+            currentGroupKey,
+            errCode: `ERR_VIDEO_RENDER_STOPPED`
+          })
+          break
+      }
     }
   })
 
@@ -436,7 +471,7 @@ async function func() {
       audioPath,
       videoPath,
       fontPath,
-      
+
       width,
       height,
 
@@ -630,6 +665,17 @@ async function func() {
             renderedFrameCount: video.GetTotalRenderedFrameCount()
           })
           break
+
+        case ERenderStatus.GENERATE_YOUTUBE_SHORTS:
+          socket.emit(`report_progress`, {
+            currentGroupKey,
+            renderStatus,
+            processPercentage: video.GetProcessPercentage()
+          })
+          break
+
+        default:
+          break
       }
 
       setTimeout(ReportProgress, 1000, currentGroupKey, rendererIndex)
@@ -671,7 +717,7 @@ async function func() {
 
         // 영상에 유저 오디오를 입힌다.
         const generatedAudioPath = await video.AudioFadeInOut(encodedAudioPath, audioReplaceInfo.StartTime, audioReplaceInfo.FadeDuration, time, audioReplaceInfo.Volume)
-        
+
         let seconds = Math.floor(audioReplaceInfo.StartTime % 60)
         let minuts = Math.floor(audioReplaceInfo.StartTime / 60)
         let milliseconds = (audioReplaceInfo.StartTime - Math.floor(audioReplaceInfo.StartTime)).toFixed(3)
@@ -679,9 +725,9 @@ async function func() {
         minuts = minuts < 10 ? `0` + minuts : minuts
         milliseconds = milliseconds > 0 ? milliseconds * 1000 : 0
         if (milliseconds === 0) milliseconds = `000`
-        else if (milliseconds < 10) milliseconds = `00${milliseconds}` 
+        else if (milliseconds < 10) milliseconds = `00${milliseconds}`
         else if (milliseconds < 100) milliseconds = `0${milliseconds}`
-        
+
         videoStartTime = `00:00:00.000`
         audioStartTime = `00:${minuts}:${seconds}.${milliseconds}`
         concatAudioPath = generatedAudioPath
@@ -736,15 +782,15 @@ async function func() {
           if (watermarkPath) {
             let sealedFileName = 'sealed.mp4'
             if (watermarkPath2) sealedFileName = 'temp.mp4'
-  
+
             const { scaleFactor, scaledWatermarkHeight } = await video.ScaleWatermark(watermarkPath, 275, 115, videoPath, width, height, scaledWatermarkFileName)
-  
+
             const scaledGapX = Math.floor(70 * scaleFactor)
             const scaledGapY = Math.floor(60 * scaleFactor)
-  
+
             const watermarkPositionX = scaledGapX
             const watermarkPositionY = height - scaledWatermarkHeight - scaledGapY
-  
+
             await video.PutWatermark(videoPath, 'result.mp4', sealedFileName, scaledWatermarkFileName, watermarkPositionX, watermarkPositionY)
           }
           // 우측 상단 워터마크
@@ -753,15 +799,15 @@ async function func() {
             if (watermarkPath) {
               originalFileName = 'temp.mp4'
             }
-  
+
             const { scaleFactor, scaledWatermarkWidth } = await video.ScaleWatermark(watermarkPath2, 244, 60, videoPath, width, height, scaledWatermarkFileName)
-  
+
             const scaledGapX = Math.floor(40 * scaleFactor)
             const scaledGapY = Math.floor(40 * scaleFactor)
-  
+
             const watermarkPositionX = width - scaledWatermarkWidth - scaledGapX
             const watermarkPositionY = scaledGapY
-  
+
             await video.PutWatermark(videoPath, originalFileName, 'sealed.mp4', scaledWatermarkFileName, watermarkPositionX, watermarkPositionY)
           }
         }
@@ -783,6 +829,166 @@ async function func() {
     }
 
     isMerging = false
+  })
+
+  socket.on(`extract_thumbnails_from_youtube_file_start`, async (data) => {
+    isVideoRendering = true
+    let {
+      currentGroupKey,
+      rendererIndex,
+
+      targetFolderPath,
+      videoUrl,
+
+      previewImageFileName
+    } = data
+
+    console.log(data)
+
+    try {
+      await global.ClearTask()
+
+      if (!videoUrl) throw `ERR_INVALIDE_META_DATA`
+      await fsAsync.Mkdirp(targetFolderPath)
+
+      video.ResetProcessPercentage()
+      renderStatus = ERenderStatus.EXTRACT_THUMBNAILS_FROM_YOUTUBE_FILE
+      renderStartedTime = Date.now()
+      ReportProgress(currentGroupKey, rendererIndex)
+
+      await video.ExtractThumbnailsFromYoutubeFile({
+        targetFolderPath,
+        videoUrl,
+        previewImageFileName
+      })
+
+      socket.emit(`extract_thumbnails_from_youtube_file_completed`, {
+        currentGroupKey,
+        errCode: null
+      })
+    }
+    catch (e) {
+      console.log(e)
+      socket.emit(`extract_thumbnails_from_youtube_file_completed`, {
+        currentGroupKey,
+        errCode: e
+      })
+    }
+
+    renderStatus = ERenderStatus.NONE
+    isVideoRendering = false
+    renderStartedTime = null
+  })
+
+  socket.on(`split_audio_files_start`, async (data) => {
+    isVideoRendering = true
+    let {
+      currentGroupKey,
+      rendererIndex,
+
+      targetFolderPath,
+      audioUrl,
+
+      startTime,
+      endTime,
+
+      segmentDuration,
+      overlapDuration,
+
+      splittedAudioFileName
+    } = data
+
+    console.log(data)
+
+    try {
+      await global.ClearTask()
+
+      if (!audioUrl) throw `ERR_INVALIDE_META_DATA`
+      await fsAsync.Mkdirp(targetFolderPath)
+
+      video.ResetProcessPercentage()
+      renderStatus = ERenderStatus.SPLIT_AUDIO_FILES
+      renderStartedTime = Date.now()
+      ReportProgress(currentGroupKey, rendererIndex)
+
+      await video.SplitAudioFiles({
+        targetFolderPath,
+        audioUrl,
+
+        startTime,
+        endTime,
+
+        segmentDuration,
+        overlapDuration,
+
+        splittedAudioFileName
+      })
+
+      socket.emit(`split_audio_files_completed`, {
+        currentGroupKey,
+        errCode: null
+      })
+    }
+    catch (e) {
+      console.log(e)
+      socket.emit(`split_audio_files_completed`, {
+        currentGroupKey,
+        errCode: e
+      })
+    }
+
+    renderStatus = ERenderStatus.NONE
+    isVideoRendering = false
+    renderStartedTime = null
+  })
+
+  socket.on(`generate_youtube_shorts_start`, async (data) => {
+    isVideoRendering = true
+    let {
+      currentGroupKey,
+      rendererIndex,
+
+      targetFolderPath,
+      ytDlpCookiesPath,
+
+      meta
+    } = data
+
+    console.log(data)
+
+    try {
+      await global.ClearTask()
+
+      await fsAsync.Mkdirp(targetFolderPath)
+
+      video.ResetProcessPercentage()
+      renderStatus = ERenderStatus.GENERATE_YOUTUBE_SHORTS
+      renderStartedTime = Date.now()
+      ReportProgress(currentGroupKey, rendererIndex)
+
+      await video.GenerateYoutubeShorts({
+        targetFolderPath,
+        ytDlpCookiesPath,
+
+        meta
+      })
+
+      socket.emit(`generate_youtube_shorts_completed`, {
+        currentGroupKey,
+        errCode: null
+      })
+    }
+    catch (e) {
+      console.log(e)
+      socket.emit(`generate_youtube_shorts_completed`, {
+        currentGroupKey,
+        errCode: e
+      })
+    }
+
+    renderStatus = ERenderStatus.NONE
+    isVideoRendering = false
+    renderStartedTime = null
   })
 
   // 프로세스 강제 종료 (긴급용)

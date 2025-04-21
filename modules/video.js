@@ -361,6 +361,61 @@ const SpawnFFMpeg = (args, renderedFrameCallback = null) => {
     })
 }
 
+const SpawnFFMpegUsingBatchFile = (localDir, args, renderedFrameCallback = null) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            const batchFilePath = `${localDir}/ffmpeg.bat`
+            await fsAsync.WriteFileAsync(batchFilePath, `ffmpeg ${args.join(' ')}`)
+
+            const iconv = require('iconv-lite')
+            const spawn = require(`child_process`).spawn,
+                ls = spawn(`cmd`, [`/c`, batchFilePath], { cwd: ffmpegPath })
+
+            let log = ``
+            ls.stdout.on('data', function (data) {
+                console.log('stdout: ' + iconv.decode(data, 'cp949'))
+                log += String(iconv.decode(data, 'cp949'))
+                if (typeof renderedFrameCallback === `function`) {
+                    const str = String(data)
+                    if (str.includes(`frame=`) && str.includes(`fps`)) {
+                        const startIndex = str.indexOf(`frame=`, 0) + 6
+                        const endIndex = str.indexOf(`fps`)
+    
+                        renderedFrameCallback(Number(str.substring(startIndex, endIndex)))
+                    }
+                }
+            })
+
+            ls.stderr.on('data', function (data) {
+                console.log('stderr: ' + iconv.decode(data, 'cp949'))
+                log += String(iconv.decode(data, 'cp949'))
+                if (typeof fpsCallback === `function`) {
+                    const str = String(data)
+                    if (str.includes(`frame=`) && str.includes(`fps`)) {
+                        const startIndex = str.indexOf(`frame=`, 0) + 6
+                        const endIndex = str.indexOf(`fps`)
+    
+                        fpsCallback(Number(str.substring(startIndex, endIndex)))
+                    }
+                }
+            })
+
+            ls.on('exit', async function (code) {
+                if (code === 0) {
+                    resolve()
+                }
+                else {
+                    reject(`ERR_FFMPEG_PROCESS_FAILED (LOG : ${log})`)
+                }
+            })
+        }
+        catch (e) {
+            console.log(e)
+            reject(`ERR_SPAWN_FFMPEG_FAILED (FFMPEG 프로세스 생성 실패)`)
+        }
+    })
+}
+
 exports.ExtractThumbnailsFromYoutubeFile = async ({
     targetFolderPath,
     videoUrl,
@@ -731,7 +786,7 @@ exports.GenerateYoutubeShorts = async ({
     const totalFrameCount = currentDuration * 30
 
     const resultVideoPath = `${targetFolderPath}/result.mp4`
-    await SpawnFFMpeg([
+    await SpawnFFMpegUsingBatchFile([
         ...inputFileArguments,
         '-filter_complex',
         filters.join(';'),

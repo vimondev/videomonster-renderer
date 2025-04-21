@@ -72,24 +72,14 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 let totalRenderedFrameCount = 0     // aerender 프로세스로 렌더링 된 프레임 개수
 let totalConvertedFrameCount = 0    // ffmpeg 프로세스로 h264로 인코딩된 프레임 개수
 
-let processPercentage = 0
-
 // 초기화
 exports.ResetTotalRenderedFrameCount = () => {
     totalRenderedFrameCount = 0
     totalConvertedFrameCount = 0
 }
 
-exports.ResetProcessPercentage = () => {
-    processPercentage = 0
-}
-
 exports.GetTotalRenderedFrameCount = () => {
     return (totalRenderedFrameCount + totalConvertedFrameCount) / 2
-}
-
-exports.GetProcessPercentage = () => {
-    return processPercentage
 }
 
 // 오디오 렌더링
@@ -309,7 +299,7 @@ exports.ExportGif = (videoFilePath, outputPath, duration, startTimeSec = 0, scal
     })
 }
 
-const SpawnFFMpeg = (args, renderedFrameCallback = null) => {
+const SpawnFFMpeg = (args) => {
     return new Promise((resolve, reject) => {
         try {
             const iconv = require('iconv-lite')
@@ -320,29 +310,11 @@ const SpawnFFMpeg = (args, renderedFrameCallback = null) => {
             ls.stdout.on('data', function (data) {
                 console.log('stdout: ' + iconv.decode(data, 'cp949'))
                 log += String(iconv.decode(data, 'cp949'))
-                if (typeof renderedFrameCallback === `function`) {
-                    const str = String(data)
-                    if (str.includes(`frame=`) && str.includes(`fps`)) {
-                        const startIndex = str.indexOf(`frame=`, 0) + 6
-                        const endIndex = str.indexOf(`fps`)
-    
-                        renderedFrameCallback(Number(str.substring(startIndex, endIndex)))
-                    }
-                }
             })
 
             ls.stderr.on('data', function (data) {
                 console.log('stderr: ' + iconv.decode(data, 'cp949'))
                 log += String(iconv.decode(data, 'cp949'))
-                if (typeof fpsCallback === `function`) {
-                    const str = String(data)
-                    if (str.includes(`frame=`) && str.includes(`fps`)) {
-                        const startIndex = str.indexOf(`frame=`, 0) + 6
-                        const endIndex = str.indexOf(`fps`)
-    
-                        fpsCallback(Number(str.substring(startIndex, endIndex)))
-                    }
-                }
             })
 
             ls.on('exit', async function (code) {
@@ -361,7 +333,7 @@ const SpawnFFMpeg = (args, renderedFrameCallback = null) => {
     })
 }
 
-const SpawnFFMpegUsingBatchFile = (localDir, args, renderedFrameCallback = null) => {
+const SpawnFFMpegUsingBatchFile = (localDir, args) => {
     return new Promise(async (resolve, reject) => {
         try {
             const batchFilePath = `${localDir}/ffmpeg.bat`
@@ -375,29 +347,11 @@ const SpawnFFMpegUsingBatchFile = (localDir, args, renderedFrameCallback = null)
             ls.stdout.on('data', function (data) {
                 console.log('stdout: ' + iconv.decode(data, 'cp949'))
                 log += String(iconv.decode(data, 'cp949'))
-                if (typeof renderedFrameCallback === `function`) {
-                    const str = String(data)
-                    if (str.includes(`frame=`) && str.includes(`fps`)) {
-                        const startIndex = str.indexOf(`frame=`, 0) + 6
-                        const endIndex = str.indexOf(`fps`)
-    
-                        renderedFrameCallback(Number(str.substring(startIndex, endIndex)))
-                    }
-                }
             })
 
             ls.stderr.on('data', function (data) {
                 console.log('stderr: ' + iconv.decode(data, 'cp949'))
                 log += String(iconv.decode(data, 'cp949'))
-                if (typeof fpsCallback === `function`) {
-                    const str = String(data)
-                    if (str.includes(`frame=`) && str.includes(`fps`)) {
-                        const startIndex = str.indexOf(`frame=`, 0) + 6
-                        const endIndex = str.indexOf(`fps`)
-    
-                        fpsCallback(Number(str.substring(startIndex, endIndex)))
-                    }
-                }
             })
 
             ls.on('exit', async function (code) {
@@ -799,9 +753,7 @@ exports.GenerateYoutubeShorts = async ({
         '-shortest',
         resultVideoPath,
         '-y'
-    ], renderedFrameCount => {
-        processPercentage = renderedFrameCount / totalFrameCount
-    })
+    ])
 
     const resultThumbnailPath = `${targetFolderPath}/result.jpg`
     await SpawnFFMpeg([

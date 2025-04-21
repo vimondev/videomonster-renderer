@@ -666,14 +666,6 @@ async function func() {
           })
           break
 
-        case ERenderStatus.GENERATE_YOUTUBE_SHORTS:
-          socket.emit(`report_progress`, {
-            currentGroupKey,
-            renderStatus,
-            processPercentage: video.GetProcessPercentage()
-          })
-          break
-
         default:
           break
       }
@@ -851,10 +843,8 @@ async function func() {
       if (!videoUrl) throw `ERR_INVALIDE_META_DATA`
       await fsAsync.Mkdirp(targetFolderPath)
 
-      video.ResetProcessPercentage()
       renderStatus = ERenderStatus.EXTRACT_THUMBNAILS_FROM_YOUTUBE_FILE
       renderStartedTime = Date.now()
-      ReportProgress(currentGroupKey, rendererIndex)
 
       await video.ExtractThumbnailsFromYoutubeFile({
         targetFolderPath,
@@ -906,10 +896,8 @@ async function func() {
       if (!audioUrl) throw `ERR_INVALIDE_META_DATA`
       await fsAsync.Mkdirp(targetFolderPath)
 
-      video.ResetProcessPercentage()
       renderStatus = ERenderStatus.SPLIT_AUDIO_FILES
       renderStartedTime = Date.now()
-      ReportProgress(currentGroupKey, rendererIndex)
 
       await video.SplitAudioFiles({
         targetFolderPath,
@@ -958,13 +946,10 @@ async function func() {
 
     try {
       await global.ClearTask()
-
       await fsAsync.Mkdirp(targetFolderPath)
 
-      video.ResetProcessPercentage()
       renderStatus = ERenderStatus.GENERATE_YOUTUBE_SHORTS
       renderStartedTime = Date.now()
-      ReportProgress(currentGroupKey, rendererIndex)
 
       await video.GenerateYoutubeShorts({
         targetFolderPath,

@@ -737,8 +737,6 @@ exports.GenerateYoutubeShorts = async ({
         audioMapVariable = nextAudioMapVariable
     }
 
-    const totalFrameCount = currentDuration * 30
-
     const resultVideoPath = `${targetFolderPath}/result.mp4`
     await SpawnFFMpegUsingBatchFile(localDir, [
         ...inputFileArguments,

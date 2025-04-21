@@ -786,7 +786,7 @@ exports.GenerateYoutubeShorts = async ({
     const totalFrameCount = currentDuration * 30
 
     const resultVideoPath = `${targetFolderPath}/result.mp4`
-    await SpawnFFMpegUsingBatchFile([
+    await SpawnFFMpegUsingBatchFile(localDir, [
         ...inputFileArguments,
         '-filter_complex',
         filters.join(';'),

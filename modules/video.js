@@ -312,13 +312,14 @@ exports.ExportGif = (videoFilePath, outputPath, duration, startTimeSec = 0, scal
 const SpawnFFMpeg = (args, renderedFrameCallback = null) => {
     return new Promise((resolve, reject) => {
         try {
+            const iconv = require('iconv-lite')
             const spawn = require(`child_process`).spawn,
                 ls = spawn(`cmd`, [`/c`, `ffmpeg`, ...args], { cwd: ffmpegPath })
 
             let log = ``
             ls.stdout.on('data', function (data) {
-                console.log('stdout: ' + data)
-                log += String(data)
+                console.log('stdout: ' + iconv.decode(data, 'cp949'))
+                log += String(iconv.decode(data, 'cp949'))
                 if (typeof renderedFrameCallback === `function`) {
                     const str = String(data)
                     if (str.includes(`frame=`) && str.includes(`fps`)) {
@@ -331,8 +332,8 @@ const SpawnFFMpeg = (args, renderedFrameCallback = null) => {
             })
 
             ls.stderr.on('data', function (data) {
-                console.log('stderr: ' + data)
-                log += String(data)
+                console.log('stderr: ' + iconv.decode(data, 'cp949'))
+                log += String(iconv.decode(data, 'cp949'))
                 if (typeof fpsCallback === `function`) {
                     const str = String(data)
                     if (str.includes(`frame=`) && str.includes(`fps`)) {

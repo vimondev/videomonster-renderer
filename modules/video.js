@@ -504,10 +504,10 @@ exports.GenerateYoutubeShorts = async ({
         try {
             let filter
             if (format === 'webm') {
-                filter = `bv*[height<=${resolution}][ext=webm]+ba[ext=webm]/b[height<=${resolution}][ext=webm]`
+                filter = `bv*[height=${resolution}][ext=webm]+ba[ext=webm]/b[height=${resolution}][ext=webm][vcodec^=vp9]`
             }
             else {
-                filter = `bv*[height<=${resolution}][ext=mp4]+ba[ext=m4a]/b[height<=${resolution}][ext=mp4]`
+                filter = `bv*[height=${resolution}][ext=mp4][vcodec^=avc1]+ba[ext=m4a]/b[height=${resolution}][ext=mp4][vcodec^=avc1]`
             }
 
             await ytDlp.Exec([
@@ -526,7 +526,9 @@ exports.GenerateYoutubeShorts = async ({
 
     const sourceVideoPath = (
         await DownloadSourceVideo(yid, localDir, 'mp4', 1080) ||
-        await DownloadSourceVideo(yid, localDir, 'webm', 1080)
+        await DownloadSourceVideo(yid, localDir, 'webm', 1080) ||
+        await DownloadSourceVideo(yid, localDir, 'mp4', 720) ||
+        await DownloadSourceVideo(yid, localDir, 'webm', 720)
     )
 
     if (!sourceVideoPath) {

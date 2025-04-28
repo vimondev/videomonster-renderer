@@ -24,7 +24,7 @@ class YTDlp {
     async Exec(args, cookiesPath, progressCallback) {
         return new Promise((resolve, reject) => {
             this.ytDlpWrap.exec([
-                '--extractor-args', 'youtube:player-client=default,-tv,web_safari,web_embedded',
+                '--extractor-args', 'youtube:player-client=default,-tv,web_embedded',
                 '--cookies', cookiesPath,
                 ...args
             ])
@@ -43,7 +43,7 @@ class YTDlp {
     
     async ExecPromise(args, cookiesPath) {
         return this.ytDlpWrap.execPromise([
-            '--extractor-args', 'youtube:player-client=default,-tv,web_safari,web_embedded',
+            '--extractor-args', 'youtube:player-client=default,-tv,web_embedded',
             '--cookies', cookiesPath,
             ...args
         ])

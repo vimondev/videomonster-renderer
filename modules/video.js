@@ -370,26 +370,80 @@ const SpawnFFMpegUsingBatchFile = (localDir, args) => {
     })
 }
 
+const DownloadSourceVideo = async ({
+    yid,
+    dir,
+    format,
+    resolution,
+    ytDlpCookiesPath,
+}) => {
+    const localVideoFilePath = `${dir}/source_${resolution}.${format}`
+    try {
+        let filter
+        if (format === 'webm') {
+            filter = `bv*[height<=${resolution}][ext=webm]+ba[ext=webm]/b[height<=${resolution}][ext=webm][vcodec^=vp9]`
+        }
+        else {
+            filter = `bv*[height<=${resolution}][ext=mp4][vcodec^=avc1]+ba[ext=m4a]/b[height<=${resolution}][ext=mp4][vcodec^=avc1]`
+        }
+
+        await ytDlp.Exec([
+            '-f', filter,
+            '-o', localVideoFilePath,
+            `https://www.youtube.com/watch?v=${yid}`
+        ], ytDlpCookiesPath)
+
+        return localVideoFilePath
+    }
+    catch (e) {
+        console.log(e)
+        return null
+    }
+}
+
 exports.ExtractThumbnailsFromYoutubeFile = async ({
     targetFolderPath,
-    videoUrl,
+    ytDlpCookiesPath,
+
+    yid,
     previewImageFileName,
 }) => {
     const localDownloadDir = `${localPath}/extract-thumbnails-from-youtube-file`
     if (await fsAsync.IsExistAsync(localDownloadDir)) await fsAsync.UnlinkFolderRecursiveIgnoreError(localDownloadDir)
     await fsAsync.Mkdirp(localDownloadDir)
 
-    const videoFileName = path.basename(videoUrl)
-    const localVideoFilePath = `${localDownloadDir}/${videoFileName}`
+    const targetResolutions = [240, 360, 480, 720]
+    let sourceVideoPath
 
-    await downloadFile(localVideoFilePath, videoUrl)
-    if (!(await retryBoolean(AccessAsync(localVideoFilePath)))) {
-        throw new Error(`ERR_DOWNLOAD_VIDEO_FILE_FAILED`)
+    for (const resolution of targetResolutions) {
+        sourceVideoPath = await DownloadSourceVideo({
+            yid,
+            dir: localDownloadDir,
+            format: 'mp4',
+            resolution,
+            ytDlpCookiesPath
+        })
+        if (sourceVideoPath) break
+    }
+    if (!sourceVideoPath) {
+        for (const resolution of targetResolutions) {
+            sourceVideoPath = await DownloadSourceVideo({
+                yid,
+                dir: localDownloadDir,
+                format: 'webm',
+                resolution,
+                ytDlpCookiesPath
+            })
+            if (sourceVideoPath) break
+        }
+        if (!sourceVideoPath) {
+            throw new Error(`ERR_SOURCE_VIDEO_DOWNLOAD_FAILED`)
+        }
     }
 
     const localPreviewImageFilePath = `${localDownloadDir}/${previewImageFileName}%d.jpg`
     await SpawnFFMpeg([
-        '-i', localVideoFilePath,
+        '-i', sourceVideoPath,
         '-vf', 'fps=1/2,scale=-2:120',
         localPreviewImageFilePath,
         '-y',
@@ -410,6 +464,8 @@ exports.ExtractThumbnailsFromYoutubeFile = async ({
     if (!result || !(await retryBoolean(AccessAsync(targetZipFilePath)))) {
         throw new Error(`ERR_WRITE_ZIP_FILE_FAILED`)
     }
+
+    await fsAsync.UnlinkFolderRecursiveIgnoreError(localDownloadDir)
 }
 
 exports.SplitAudioFiles = async ({
@@ -478,6 +534,8 @@ exports.SplitAudioFiles = async ({
             throw new Error(`ERR_SPLIT_AUDIO_FILE_FAILED`)
         }
     }
+
+    await fsAsync.UnlinkFolderRecursiveIgnoreError(localDir)
 }
 
 exports.GenerateYoutubeShorts = async ({
@@ -499,36 +557,21 @@ exports.GenerateYoutubeShorts = async ({
     const startTime = Date.now()
     console.log(`Downloading source video...`)
 
-    const DownloadSourceVideo = async (yid, dir, format, resolution) => {
-        const localVideoFilePath = `${dir}/source_${resolution}.${format}`
-        try {
-            let filter
-            if (format === 'webm') {
-                filter = `bv*[height=${resolution}][ext=webm]+ba[ext=webm]/b[height=${resolution}][ext=webm][vcodec^=vp9]`
-            }
-            else {
-                filter = `bv*[height=${resolution}][ext=mp4][vcodec^=avc1]+ba[ext=m4a]/b[height=${resolution}][ext=mp4][vcodec^=avc1]`
-            }
-
-            await ytDlp.Exec([
-                '-f', filter,
-                '-o', localVideoFilePath,
-                `https://www.youtube.com/watch?v=${yid}`
-            ], ytDlpCookiesPath)
-
-            return localVideoFilePath
-        }
-        catch (e) {
-            console.error(e)
-            return null
-        }
-    }
-
     const sourceVideoPath = (
-        await DownloadSourceVideo(yid, localDir, 'mp4', 1080) ||
-        await DownloadSourceVideo(yid, localDir, 'webm', 1080) ||
-        await DownloadSourceVideo(yid, localDir, 'mp4', 720) ||
-        await DownloadSourceVideo(yid, localDir, 'webm', 720)
+        await DownloadSourceVideo({
+            yid,
+            dir: localDir,
+            format: 'mp4',
+            resolution: 1080,
+            ytDlpCookiesPath
+        }) ||
+        await DownloadSourceVideo({
+            yid,
+            dir: localDir,
+            format: 'webm',
+            resolution: 1080,
+            ytDlpCookiesPath
+        })
     )
 
     if (!sourceVideoPath) {
@@ -768,6 +811,8 @@ exports.GenerateYoutubeShorts = async ({
     if (!(await retryBoolean(AccessAsync(resultThumbnailPath)))) {
         throw new Error(`ERR_YOUTUBE_SHORTS_RESULT_THUMBNAIL_NOT_EXIST`)
     }
+
+    await fsAsync.UnlinkFolderRecursiveIgnoreError(localDir)
 
     console.log(`Generated shorts video in ${Date.now() - startTime}ms`)
 }

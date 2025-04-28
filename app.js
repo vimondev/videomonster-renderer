@@ -830,8 +830,9 @@ async function func() {
       rendererIndex,
 
       targetFolderPath,
-      videoUrl,
+      ytDlpCookiesPath,
 
+      yid,
       previewImageFileName
     } = data
 
@@ -840,7 +841,7 @@ async function func() {
     try {
       await global.ClearTask()
 
-      if (!videoUrl) throw `ERR_INVALIDE_META_DATA`
+      if (!yid) throw `ERR_INVALIDE_META_DATA`
       await fsAsync.Mkdirp(targetFolderPath)
 
       renderStatus = ERenderStatus.EXTRACT_THUMBNAILS_FROM_YOUTUBE_FILE
@@ -848,7 +849,9 @@ async function func() {
 
       await video.ExtractThumbnailsFromYoutubeFile({
         targetFolderPath,
-        videoUrl,
+        ytDlpCookiesPath,
+
+        yid,
         previewImageFileName
       })
 

@@ -172,3 +172,17 @@ exports.downloadFile = (destinationPath, url) => {
         }
     })
 }
+
+exports.RunningFunctionWithRetry = async (func, retryCount = 5, retryDelay = 1000) => {
+    for (let i = 0; i < retryCount; i++) {
+        try {
+            return await func()
+        }
+        catch (error) {
+            if (i === retryCount - 1) {
+                throw error
+            }
+            await sleep(retryDelay)
+        }
+    }
+}

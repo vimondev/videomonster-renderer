@@ -10,7 +10,13 @@ const {
 const fsAsync = require('./fsAsync')
 const ytDlp = require('./ytDlp')
 const ffprobe = require('./ffprobe')
-const { retry, retryBoolean, TaskKill, downloadFile } = require('../global')
+const {
+    retry,
+    retryBoolean,
+    TaskKill,
+    downloadFile,
+    RunningFunctionWithRetry
+} = require('../global')
 
 function AccessAsync(_path) {
     return new Promise((resolve, reject) => {
@@ -416,24 +422,24 @@ exports.ExtractThumbnailsFromYoutubeFile = async ({
     let sourceVideoPath
 
     for (const resolution of targetResolutions) {
-        sourceVideoPath = await DownloadSourceVideo({
+        sourceVideoPath = await RunningFunctionWithRetry(() => DownloadSourceVideo({
             yid,
             dir: localDownloadDir,
             format: 'mp4',
             resolution,
             ytDlpCookiesPath
-        })
+        }))
         if (sourceVideoPath) break
     }
     if (!sourceVideoPath) {
         for (const resolution of targetResolutions) {
-            sourceVideoPath = await DownloadSourceVideo({
+            sourceVideoPath = await RunningFunctionWithRetry(() => DownloadSourceVideo({
                 yid,
                 dir: localDownloadDir,
                 format: 'webm',
                 resolution,
                 ytDlpCookiesPath
-            })
+            }))
             if (sourceVideoPath) break
         }
         if (!sourceVideoPath) {
@@ -557,22 +563,24 @@ exports.GenerateYoutubeShorts = async ({
     const startTime = Date.now()
     console.log(`Downloading source video...`)
 
-    const sourceVideoPath = (
-        await DownloadSourceVideo({
-            yid,
-            dir: localDir,
-            format: 'mp4',
-            resolution: 1080,
-            ytDlpCookiesPath
-        }) ||
-        await DownloadSourceVideo({
-            yid,
-            dir: localDir,
-            format: 'webm',
-            resolution: 1080,
-            ytDlpCookiesPath
-        })
-    )
+    const sourceVideoPath = await RunningFunctionWithRetry(async () => {
+        return (
+            await DownloadSourceVideo({
+                yid,
+                dir: localDir,
+                format: 'mp4',
+                resolution: 1080,
+                ytDlpCookiesPath
+            }) ||
+            await DownloadSourceVideo({
+                yid,
+                dir: localDir,
+                format: 'webm',
+                resolution: 1080,
+                ytDlpCookiesPath
+            })
+        )
+    })
 
     if (!sourceVideoPath) {
         throw new Error(`ERR_SOURCE_VIDEO_DOWNLOAD_FAILED`)

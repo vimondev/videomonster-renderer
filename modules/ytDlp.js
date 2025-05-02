@@ -24,7 +24,7 @@ class YTDlp {
     async Exec(args, cookiesPath, poToken, progressCallback) {
         return new Promise((resolve, reject) => {
             /**
-             * REFERENCE : https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide#no-account
+             * REFERENCE : https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide#with-an-account
              */
             this.ytDlpWrap.exec([
                 '--extractor-args', `youtube:po_token=web.gvs+${poToken}`,
@@ -46,7 +46,7 @@ class YTDlp {
     
     async ExecPromise(args, poToken, cookiesPath) {
         /**
-         * REFERENCE : https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide#no-account
+         * REFERENCE : https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide#with-an-account
          */
         return this.ytDlpWrap.execPromise([
             '--extractor-args', `youtube:po_token=web.gvs+${poToken}`,

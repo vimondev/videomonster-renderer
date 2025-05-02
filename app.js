@@ -831,6 +831,7 @@ async function func() {
 
       targetFolderPath,
       ytDlpCookiesPath,
+      poToken,
 
       yid,
       previewImageFileName
@@ -850,6 +851,7 @@ async function func() {
       await video.ExtractThumbnailsFromYoutubeFile({
         targetFolderPath,
         ytDlpCookiesPath,
+        poToken,
 
         yid,
         previewImageFileName
@@ -941,6 +943,7 @@ async function func() {
 
       targetFolderPath,
       ytDlpCookiesPath,
+      poToken,
 
       meta
     } = data
@@ -957,6 +960,7 @@ async function func() {
       await video.GenerateYoutubeShorts({
         targetFolderPath,
         ytDlpCookiesPath,
+        poToken,
 
         meta
       })

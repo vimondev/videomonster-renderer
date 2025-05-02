@@ -382,6 +382,7 @@ const DownloadSourceVideo = async ({
     format,
     resolution,
     ytDlpCookiesPath,
+    poToken,
 }) => {
     const localVideoFilePath = `${dir}/source_${resolution}.${format}`
     try {
@@ -397,7 +398,7 @@ const DownloadSourceVideo = async ({
             '-f', filter,
             '-o', localVideoFilePath,
             `https://www.youtube.com/watch?v=${yid}`
-        ], ytDlpCookiesPath)
+        ], ytDlpCookiesPath, poToken)
 
         return localVideoFilePath
     }
@@ -410,6 +411,7 @@ const DownloadSourceVideo = async ({
 exports.ExtractThumbnailsFromYoutubeFile = async ({
     targetFolderPath,
     ytDlpCookiesPath,
+    poToken,
 
     yid,
     previewImageFileName,
@@ -427,7 +429,8 @@ exports.ExtractThumbnailsFromYoutubeFile = async ({
             dir: localDownloadDir,
             format: 'mp4',
             resolution,
-            ytDlpCookiesPath
+            ytDlpCookiesPath,
+            poToken
         }))
         if (sourceVideoPath) break
     }
@@ -438,7 +441,8 @@ exports.ExtractThumbnailsFromYoutubeFile = async ({
                 dir: localDownloadDir,
                 format: 'webm',
                 resolution,
-                ytDlpCookiesPath
+                ytDlpCookiesPath,
+                poToken
             }))
             if (sourceVideoPath) break
         }
@@ -547,6 +551,7 @@ exports.SplitAudioFiles = async ({
 exports.GenerateYoutubeShorts = async ({
     targetFolderPath,
     ytDlpCookiesPath,
+    poToken,
 
     meta: {
         yid,
@@ -570,14 +575,16 @@ exports.GenerateYoutubeShorts = async ({
                 dir: localDir,
                 format: 'mp4',
                 resolution: 1080,
-                ytDlpCookiesPath
+                ytDlpCookiesPath,
+                poToken
             }) ||
             await DownloadSourceVideo({
                 yid,
                 dir: localDir,
                 format: 'webm',
                 resolution: 1080,
-                ytDlpCookiesPath
+                ytDlpCookiesPath,
+                poToken
             })
         )
     })

@@ -381,8 +381,7 @@ const DownloadSourceVideo = async ({
     dir,
     format,
     resolution,
-    ytDlpCookiesPath,
-    poToken,
+    ytDlpCookiesPath
 }) => {
     const localVideoFilePath = `${dir}/source_${resolution}.${format}`
     try {
@@ -398,7 +397,7 @@ const DownloadSourceVideo = async ({
             '-f', filter,
             '-o', localVideoFilePath,
             `https://www.youtube.com/watch?v=${yid}`
-        ], ytDlpCookiesPath, poToken)
+        ], ytDlpCookiesPath)
 
         return localVideoFilePath
     }
@@ -411,7 +410,6 @@ const DownloadSourceVideo = async ({
 exports.ExtractThumbnailsFromYoutubeFile = async ({
     targetFolderPath,
     ytDlpCookiesPath,
-    poToken,
 
     yid,
     previewImageFileName,
@@ -429,8 +427,7 @@ exports.ExtractThumbnailsFromYoutubeFile = async ({
             dir: localDownloadDir,
             format: 'mp4',
             resolution,
-            ytDlpCookiesPath,
-            poToken
+            ytDlpCookiesPath
         }))
         if (sourceVideoPath) break
     }
@@ -441,8 +438,7 @@ exports.ExtractThumbnailsFromYoutubeFile = async ({
                 dir: localDownloadDir,
                 format: 'webm',
                 resolution,
-                ytDlpCookiesPath,
-                poToken
+                ytDlpCookiesPath
             }))
             if (sourceVideoPath) break
         }
@@ -551,7 +547,6 @@ exports.SplitAudioFiles = async ({
 exports.GenerateYoutubeShorts = async ({
     targetFolderPath,
     ytDlpCookiesPath,
-    poToken,
 
     meta: {
         yid,
@@ -575,16 +570,14 @@ exports.GenerateYoutubeShorts = async ({
                 dir: localDir,
                 format: 'mp4',
                 resolution: 1080,
-                ytDlpCookiesPath,
-                poToken
+                ytDlpCookiesPath
             }) ||
             await DownloadSourceVideo({
                 yid,
                 dir: localDir,
                 format: 'webm',
                 resolution: 1080,
-                ytDlpCookiesPath,
-                poToken
+                ytDlpCookiesPath
             })
         )
     })

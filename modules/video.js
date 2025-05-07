@@ -381,7 +381,7 @@ const DownloadSourceVideo = async ({
     dir,
     format,
     resolution,
-    ytDlpCookiesPath,
+    ytDlpCookiesPath
 }) => {
     const localVideoFilePath = `${dir}/source_${resolution}.${format}`
     try {

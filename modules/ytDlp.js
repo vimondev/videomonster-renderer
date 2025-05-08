@@ -24,9 +24,9 @@ class YTDlp {
     async Exec(args, cookiesPath, progressCallback) {
         return new Promise((resolve, reject) => {
             this.ytDlpWrap.exec([
-                '--sleep-requests', '3',
-                '--sleep-interval', '60',
-                '--max-sleep-interval', '120',
+                '--sleep-requests', '1',
+                '--min-sleep-interval', '5',
+                '--max-sleep-interval', '10',
                 '--cookies', cookiesPath,
                 ...args
             ])
@@ -45,9 +45,9 @@ class YTDlp {
     
     async ExecPromise(args, cookiesPath) {
         return this.ytDlpWrap.execPromise([
-            '--sleep-requests', '3',
-            '--sleep-interval', '60',
-            '--max-sleep-interval', '120',
+            '--sleep-requests', '1',
+            '--min-sleep-interval', '5',
+            '--max-sleep-interval', '10',
             '--cookies', cookiesPath,
             ...args
         ])

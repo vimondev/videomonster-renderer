@@ -44,7 +44,9 @@ async function func() {
         case 'master':
           return 'http://vmstage2023.koreacentral.cloudapp.azure.com:3000'
         case 'dev':
-          return 'http://vmdev2025.koreacentral.cloudapp.azure.com:3000'
+          // return 'http://vmdev2025.koreacentral.cloudapp.azure.com:3000'
+          // FOR TEST
+          return 'http://vmstage2025.koreacentral.cloudapp.azure.com:3000'
         // return 'http://videomonster.iptime.org:3000'
 
         default:

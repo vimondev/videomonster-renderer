@@ -428,9 +428,8 @@ exports.ExtractThumbnailsFromYoutubeFile = async ({
             format: 'mp4',
             resolution,
             ytDlpCookiesPath
-        }))
+        }), 5, 30000)
         if (sourceVideoPath) break
-        else await sleep(5000)
     }
     if (!sourceVideoPath) {
         for (const resolution of targetResolutions) {
@@ -440,9 +439,8 @@ exports.ExtractThumbnailsFromYoutubeFile = async ({
                 format: 'webm',
                 resolution,
                 ytDlpCookiesPath
-            }))
+            }), 5, 30000)
             if (sourceVideoPath) break
-            else await sleep(5000)
         }
         if (!sourceVideoPath) {
             throw new Error(`ERR_SOURCE_VIDEO_DOWNLOAD_FAILED`)
@@ -565,24 +563,27 @@ exports.GenerateYoutubeShorts = async ({
     const startTime = Date.now()
     console.log(`Downloading source video...`)
 
-    const sourceVideoPath = await RunningFunctionWithRetry(async () => {
-        return (
-            await DownloadSourceVideo({
-                yid,
-                dir: localDir,
-                format: 'mp4',
-                resolution: 1080,
-                ytDlpCookiesPath
-            }) ||
-            await DownloadSourceVideo({
-                yid,
-                dir: localDir,
-                format: 'webm',
-                resolution: 1080,
-                ytDlpCookiesPath
-            })
-        )
-    })
+    const sourceVideoPath = await (async () => {
+        let result = await RunningFunctionWithRetry(() => DownloadSourceVideo({
+            yid,
+            dir: localDir,
+            format: 'mp4',
+            resolution: 1080,
+            ytDlpCookiesPath
+        }), 5, 30000)
+        if (result) return result
+
+        result = await RunningFunctionWithRetry(() => DownloadSourceVideo({
+            yid,
+            dir: localDir,
+            format: 'webm',
+            resolution: 1080,
+            ytDlpCookiesPath
+        }), 5, 30000)
+        if (result) return result
+
+        throw new Error(`ERR_SOURCE_VIDEO_DOWNLOAD_FAILED`)
+    })()
 
     if (!sourceVideoPath) {
         throw new Error(`ERR_SOURCE_VIDEO_DOWNLOAD_FAILED`)

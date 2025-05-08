@@ -430,6 +430,7 @@ exports.ExtractThumbnailsFromYoutubeFile = async ({
             ytDlpCookiesPath
         }))
         if (sourceVideoPath) break
+        else await sleep(5000)
     }
     if (!sourceVideoPath) {
         for (const resolution of targetResolutions) {
@@ -441,6 +442,7 @@ exports.ExtractThumbnailsFromYoutubeFile = async ({
                 ytDlpCookiesPath
             }))
             if (sourceVideoPath) break
+            else await sleep(5000)
         }
         if (!sourceVideoPath) {
             throw new Error(`ERR_SOURCE_VIDEO_DOWNLOAD_FAILED`)

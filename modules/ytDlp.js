@@ -21,6 +21,16 @@ class YTDlp {
         await YTDlpWrap.downloadFromGithub(ytDlpBinaryPath);
     }
     
+    /**
+     * REFERENCE : https://github.com/yt-dlp/yt-dlp#workarounds
+     * 
+     * --sleep-requests : request 사이 대기시간
+     * --min-sleep-interval : 비디오 / 오디오 다운로드 최소 대기시간
+     * --max-sleep-interval : 비디오 / 오디오 다운로드 최대 대기시간
+     * --file-access-retries : 파일 접근 실패 시 재시도 횟수
+     * --retry-sleep : 파일 접근 실패 시 대기시간
+     * --cookies : 쿠키 파일 경로
+     */
     async Exec(args, cookiesPath, progressCallback) {
         return new Promise((resolve, reject) => {
             this.ytDlpWrap.exec([

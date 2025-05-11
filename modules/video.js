@@ -428,7 +428,7 @@ exports.ExtractThumbnailsFromYoutubeFile = async ({
             format: 'mp4',
             resolution,
             ytDlpCookiesPath
-        }), 5, 30000)
+        }), 3, 60000)
         if (sourceVideoPath) break
     }
     if (!sourceVideoPath) {
@@ -439,7 +439,7 @@ exports.ExtractThumbnailsFromYoutubeFile = async ({
                 format: 'webm',
                 resolution,
                 ytDlpCookiesPath
-            }), 5, 30000)
+            }), 3, 60000)
             if (sourceVideoPath) break
         }
         if (!sourceVideoPath) {
@@ -570,8 +570,10 @@ exports.GenerateYoutubeShorts = async ({
             format: 'mp4',
             resolution: 1080,
             ytDlpCookiesPath
-        }), 5, 30000)
+        }), 5, 60000)
         if (result) return result
+
+        await sleep(60000)
 
         result = await RunningFunctionWithRetry(() => DownloadSourceVideo({
             yid,
@@ -579,7 +581,7 @@ exports.GenerateYoutubeShorts = async ({
             format: 'webm',
             resolution: 1080,
             ytDlpCookiesPath
-        }), 5, 30000)
+        }), 5, 60000)
         if (result) return result
 
         throw new Error(`ERR_SOURCE_VIDEO_DOWNLOAD_FAILED`)

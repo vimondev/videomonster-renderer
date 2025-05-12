@@ -339,15 +339,15 @@ const SpawnFFMpeg = (args) => {
     })
 }
 
-const SpawnFFMpegUsingBatchFile = (localDir, args) => {
+const SpawnFFMpegUsingPowerShellScriptFile = (localDir, args) => {
     return new Promise(async (resolve, reject) => {
         try {
-            const batchFilePath = `${localDir}/ffmpeg.bat`
-            await fsAsync.WriteFileAsync(batchFilePath, `ffmpeg ${args.join(' ')}`)
+            const powerShellScriptFilePath = `${localDir}/ffmpeg.ps1`
+            await fsAsync.WriteFileAsync(powerShellScriptFilePath, `${ffmpegPath}/ffmpeg ${args.join(' ')}`)
 
             const iconv = require('iconv-lite')
             const spawn = require(`child_process`).spawn,
-                ls = spawn(`cmd`, [`/c`, batchFilePath], { cwd: ffmpegPath })
+                ls = spawn(`cmd`, [`/c`, `powershell`, `-File`, powerShellScriptFilePath])
 
             let log = ``
             ls.stdout.on('data', function (data) {
@@ -794,7 +794,7 @@ exports.GenerateYoutubeShorts = async ({
     }
 
     const resultVideoPath = `${targetFolderPath}/result.mp4`
-    await SpawnFFMpegUsingBatchFile(localDir, [
+    await SpawnFFMpegUsingPowerShellScriptFile(localDir, [
         ...inputFileArguments,
         '-filter_complex',
         filters.join(';'),

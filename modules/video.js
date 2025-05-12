@@ -339,15 +339,15 @@ const SpawnFFMpeg = (args) => {
     })
 }
 
-const SpawnFFMpegUsingBatchFile = (localDir, args) => {
+const SpawnFFMpegUsingPowerShellScriptFile = (localDir, args) => {
     return new Promise(async (resolve, reject) => {
         try {
-            const batchFilePath = `${localDir}/ffmpeg.bat`
-            await fsAsync.WriteFileAsync(batchFilePath, `ffmpeg ${args.join(' ')}`)
+            const powerShellScriptFilePath = `${localDir}/ffmpeg.ps1`
+            await fsAsync.WriteFileAsync(powerShellScriptFilePath, `${ffmpegPath}/ffmpeg ${args.map(arg => `"${arg}"`).join(' ')}`)
 
             const iconv = require('iconv-lite')
             const spawn = require(`child_process`).spawn,
-                ls = spawn(`cmd`, [`/c`, batchFilePath], { cwd: ffmpegPath })
+                ls = spawn(`cmd`, [`/c`, `powershell`, `-ExecutionPolicy`, `Bypass`, `-File`, powerShellScriptFilePath])
 
             let log = ``
             ls.stdout.on('data', function (data) {
@@ -428,9 +428,8 @@ exports.ExtractThumbnailsFromYoutubeFile = async ({
             format: 'mp4',
             resolution,
             ytDlpCookiesPath
-        }))
+        }), 3, 60000)
         if (sourceVideoPath) break
-        else await sleep(5000)
     }
     if (!sourceVideoPath) {
         for (const resolution of targetResolutions) {
@@ -440,9 +439,8 @@ exports.ExtractThumbnailsFromYoutubeFile = async ({
                 format: 'webm',
                 resolution,
                 ytDlpCookiesPath
-            }))
+            }), 3, 60000)
             if (sourceVideoPath) break
-            else await sleep(5000)
         }
         if (!sourceVideoPath) {
             throw new Error(`ERR_SOURCE_VIDEO_DOWNLOAD_FAILED`)
@@ -565,24 +563,29 @@ exports.GenerateYoutubeShorts = async ({
     const startTime = Date.now()
     console.log(`Downloading source video...`)
 
-    const sourceVideoPath = await RunningFunctionWithRetry(async () => {
-        return (
-            await DownloadSourceVideo({
-                yid,
-                dir: localDir,
-                format: 'mp4',
-                resolution: 1080,
-                ytDlpCookiesPath
-            }) ||
-            await DownloadSourceVideo({
-                yid,
-                dir: localDir,
-                format: 'webm',
-                resolution: 1080,
-                ytDlpCookiesPath
-            })
-        )
-    })
+    const sourceVideoPath = await (async () => {
+        let result = await RunningFunctionWithRetry(() => DownloadSourceVideo({
+            yid,
+            dir: localDir,
+            format: 'mp4',
+            resolution: 1080,
+            ytDlpCookiesPath
+        }), 5, 60000)
+        if (result) return result
+
+        await sleep(60000)
+
+        result = await RunningFunctionWithRetry(() => DownloadSourceVideo({
+            yid,
+            dir: localDir,
+            format: 'webm',
+            resolution: 1080,
+            ytDlpCookiesPath
+        }), 5, 60000)
+        if (result) return result
+
+        throw new Error(`ERR_SOURCE_VIDEO_DOWNLOAD_FAILED`)
+    })()
 
     if (!sourceVideoPath) {
         throw new Error(`ERR_SOURCE_VIDEO_DOWNLOAD_FAILED`)
@@ -791,7 +794,7 @@ exports.GenerateYoutubeShorts = async ({
     }
 
     const resultVideoPath = `${targetFolderPath}/result.mp4`
-    await SpawnFFMpegUsingBatchFile(localDir, [
+    await SpawnFFMpegUsingPowerShellScriptFile(localDir, [
         ...inputFileArguments,
         '-filter_complex',
         filters.join(';'),

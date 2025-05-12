@@ -347,7 +347,7 @@ const SpawnFFMpegUsingPowerShellScriptFile = (localDir, args) => {
 
             const iconv = require('iconv-lite')
             const spawn = require(`child_process`).spawn,
-                ls = spawn(`cmd`, [`/c`, `powershell`, `-File`, powerShellScriptFilePath])
+                ls = spawn(`cmd`, [`/c`, `powershell`, `-ExecutionPolicy`, `Bypass`, `-File`, powerShellScriptFilePath])
 
             let log = ``
             ls.stdout.on('data', function (data) {

@@ -343,7 +343,7 @@ const SpawnFFMpegUsingPowerShellScriptFile = (localDir, args) => {
     return new Promise(async (resolve, reject) => {
         try {
             const powerShellScriptFilePath = `${localDir}/ffmpeg.ps1`
-            await fsAsync.WriteFileAsync(powerShellScriptFilePath, `${ffmpegPath}/ffmpeg ${args.join(' ')}`)
+            await fsAsync.WriteFileAsync(powerShellScriptFilePath, `${ffmpegPath}/ffmpeg ${args.map(arg => `"${arg}"`).join(' ')}`)
 
             const iconv = require('iconv-lite')
             const spawn = require(`child_process`).spawn,

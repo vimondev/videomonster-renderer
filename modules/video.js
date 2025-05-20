@@ -339,15 +339,18 @@ const SpawnFFMpeg = (args) => {
     })
 }
 
-const SpawnFFMpegUsingPowerShellScriptFile = (localDir, args) => {
+const SpawnFFMpegUsingPowerShellScriptFile = (localDir, args, { cwd = undefined } = {}) => {
     return new Promise(async (resolve, reject) => {
         try {
             const powerShellScriptFilePath = `${localDir}/ffmpeg.ps1`
             await fsAsync.WriteFileAsync(powerShellScriptFilePath, `${ffmpegPath}/ffmpeg ${args.map(arg => `"${arg}"`).join(' ')}`)
 
+            // FOR DEBUG
+            await fsAsync.CopyFileAsync(powerShellScriptFilePath, `${require('os').homedir()}/Desktop/ffmpeg.ps1`)
+
             const iconv = require('iconv-lite')
             const spawn = require(`child_process`).spawn,
-                ls = spawn(`cmd`, [`/c`, `powershell`, `-ExecutionPolicy`, `Bypass`, `-File`, powerShellScriptFilePath])
+                ls = spawn(`cmd`, [`/c`, `powershell`, `-ExecutionPolicy`, `Bypass`, `-File`, powerShellScriptFilePath], { cwd })
 
             let log = ``
             ls.stdout.on('data', function (data) {
@@ -501,7 +504,7 @@ exports.SplitAudioFiles = async ({
 
     const targetTimes = []
     let index = 0
-    
+
     while (true) {
         const startTime = inputStartTime + index * segmentDuration
         let endTime = startTime + segmentDuration + overlapDuration
@@ -635,6 +638,32 @@ exports.GenerateYoutubeShorts = async ({
         })
     }
 
+    console.log(`Copy sources to local directory... (for using relative path in ffmpeg)`)
+    const localSourcesDir = `${localDir}/sources`
+    if (await fsAsync.IsExistAsync(localSourcesDir)) await fsAsync.UnlinkFolderRecursiveIgnoreError(localSourcesDir)
+    await fsAsync.Mkdirp(localSourcesDir)
+
+    const sourceVideoFileName = `s${path.extname(sourceVideoPath)}`
+    const blackImageFileName = 'bg.png'
+    const topicTextFileName = `t${path.extname(topicText.filepath)}`
+
+    await Promise.all([
+        fsAsync.CopyFileAsync(sourceVideoPath, `${localSourcesDir}/${sourceVideoFileName}`),
+        fsAsync.CopyFileAsync(`${__dirname}/sources/black.png`, `${localSourcesDir}/${blackImageFileName}`),
+        fsAsync.CopyFileAsync(topicText.filepath, `${localSourcesDir}/${topicTextFileName}`),
+        (async () => {
+            const promises = []
+            for (let i = 0; i < otherTexts.length; i++) {
+                const item = otherTexts[i]
+                const fileName = `t-${i}${path.extname(item.filepath)}`
+                promises.push(fsAsync.CopyFileAsync(item.filepath, `${localSourcesDir}/${fileName}`))
+                item.fileName = fileName
+            }
+            await Promise.all(promises)
+        })()
+    ])
+    console.log(`Sources copied.`)
+
     const sourceAspectRatio = sourceVideoWidth / sourceVideoHeight
     const outputVideoWidth = 1080
     const outputVideoHeight = 1920
@@ -647,14 +676,14 @@ exports.GenerateYoutubeShorts = async ({
         return args.filter(arg => arg.startsWith('-i')).length - 1
     }
 
-    inputFileArguments.push(...['-i', sourceVideoPath])
-    inputFileArguments.push(...['-i', `${__dirname}/sources/black.png`])
+    inputFileArguments.push(...['-i', sourceVideoFileName])
+    inputFileArguments.push(...['-i', blackImageFileName])
 
     let videoMapVariable = '[0:v]'
     let audioMapVariable = '[0:a]'
 
-    let nextVideoMapVariable = '[merged_video]'
-    let nextAudioMapVariable = '[merged_audio]'
+    let nextVideoMapVariable = '[mv]'
+    let nextAudioMapVariable = '[ma]'
     filters.push(clips.map((clip, i) => `${videoMapVariable}trim=start=${clip.start}:end=${clip.end},setpts=PTS-STARTPTS[v${i}];${audioMapVariable}atrim=start=${clip.start}:end=${clip.end},asetpts=PTS-STARTPTS[a${i}]`).join(';') + `;${clips.map((clip, i) => `[v${i}][a${i}]`).join('')}concat=n=${clips.length}:v=1:a=1${nextVideoMapVariable}${nextAudioMapVariable}`)
     videoMapVariable = nextVideoMapVariable
     audioMapVariable = nextAudioMapVariable
@@ -665,7 +694,7 @@ exports.GenerateYoutubeShorts = async ({
     let height = REF_VALUE
 
     let needToCrop = false
-    nextVideoMapVariable = '[cropped_video]'
+    nextVideoMapVariable = '[cv]'
     switch (layout) {
         case 'Layout02':
             {
@@ -743,15 +772,15 @@ exports.GenerateYoutubeShorts = async ({
 
     videoMapVariable = nextVideoMapVariable
 
-    nextVideoMapVariable = '[overlay_video]'
-    filters.push(`[1:v]fps=30,scale=${outputVideoWidth}:${outputVideoHeight}[background]`)
-    filters.push(`[background]${videoMapVariable}overlay=x=${x}:y=${y}${nextVideoMapVariable}`)
+    nextVideoMapVariable = '[ov]'
+    filters.push(`[1:v]fps=30,scale=${outputVideoWidth}:${outputVideoHeight}[bg]`)
+    filters.push(`[bg]${videoMapVariable}overlay=x=${x}:y=${y}${nextVideoMapVariable}`)
     videoMapVariable = nextVideoMapVariable
 
-    inputFileArguments.push(...['-i', topicText.filepath])
-    nextVideoMapVariable = `[overlay_video_${getInputFileCount(inputFileArguments)}]`
-    filters.push(`[${getInputFileCount(inputFileArguments)}:v]fps=30,scale=${topicText.width}:${topicText.height}[topic]`)
-    filters.push(`${videoMapVariable}[topic]overlay=x=${topicText.left}:y=${topicText.top}${nextVideoMapVariable}`)
+    inputFileArguments.push(...['-i', topicTextFileName])
+    nextVideoMapVariable = `[ov${getInputFileCount(inputFileArguments)}]`
+    filters.push(`[${getInputFileCount(inputFileArguments)}:v]fps=30,scale=${topicText.width}:${topicText.height}[tp]`)
+    filters.push(`${videoMapVariable}[tp]overlay=x=${topicText.left}:y=${topicText.top}${nextVideoMapVariable}`)
     videoMapVariable = nextVideoMapVariable
 
     let currentDuration = 0
@@ -759,16 +788,16 @@ exports.GenerateYoutubeShorts = async ({
         const { start: clipStart, end: clipEnd, list } = clip
 
         for (const text of list) {
-            const { filepath, start, end, left, top, width, height } = text
+            const { fileName, start, end, left, top, width, height } = text
 
             const textStart = start - clipStart + currentDuration
             const textEnd = end - clipStart + currentDuration
-            inputFileArguments.push(...['-i', filepath])
+            inputFileArguments.push(...['-i', fileName])
 
             const idx = getInputFileCount(inputFileArguments)
-            const textMapVariable = `[text_${idx}]`
+            const textMapVariable = `[t${idx}]`
 
-            nextVideoMapVariable = `[overlay_video_${idx}]`
+            nextVideoMapVariable = `[ov${idx}]`
             filters.push(`[${idx}:v]fps=30,scale=${width}:${height}${textMapVariable}`)
             filters.push(`${videoMapVariable}${textMapVariable}overlay=x=${left}:y=${top}:enable='between(t\\,${textStart},${textEnd})'${nextVideoMapVariable}`)
             videoMapVariable = nextVideoMapVariable
@@ -777,18 +806,18 @@ exports.GenerateYoutubeShorts = async ({
     }
 
     volume = Math.max(0, Math.min(2, volume))
-    nextAudioMapVariable = '[audio_volume_applied]'
+    nextAudioMapVariable = '[avol]'
     filters.push(`${audioMapVariable}volume=${volume}${nextAudioMapVariable}`)
     audioMapVariable = nextAudioMapVariable
 
     playbackSpeed = Math.max(0.5, Math.min(2, playbackSpeed))
     playbackSpeed -= playbackSpeed % 0.25
     if (playbackSpeed !== 1) {
-        nextVideoMapVariable = '[video_speed_applied]'
+        nextVideoMapVariable = '[vspd]'
         filters.push(`${videoMapVariable}setpts=${1 / playbackSpeed}*PTS${nextVideoMapVariable}`)
         videoMapVariable = nextVideoMapVariable
 
-        nextAudioMapVariable = '[audio_speed_applied]'
+        nextAudioMapVariable = '[aspd]'
         filters.push(`${audioMapVariable}atempo=${playbackSpeed}${nextAudioMapVariable}`)
         audioMapVariable = nextAudioMapVariable
     }
@@ -807,7 +836,7 @@ exports.GenerateYoutubeShorts = async ({
         '-shortest',
         resultVideoPath,
         '-y'
-    ])
+    ], { cwd: localSourcesDir })
 
     const resultThumbnailPath = `${targetFolderPath}/result.jpg`
     await SpawnFFMpeg([

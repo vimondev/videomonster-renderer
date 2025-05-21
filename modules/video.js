@@ -825,10 +825,18 @@ exports.GenerateYoutubeShorts = async ({
     }
 
     const resultVideoPath = `${targetFolderPath}/result.mp4`
+    const filterComplexScriptFileName = 'filter.txt'
+    await fsAsync.WriteFileAsync(`${localSourcesDir}/${filterComplexScriptFileName}`, filters.join(';'), { encoding: 'utf-8' })
+
+    // FOR DEBUG
+    await fsAsync.CopyFileAsync(`${localSourcesDir}/${filterComplexScriptFileName}`, `${require('os').homedir()}/Desktop/${filterComplexScriptFileName}`)
+
     await SpawnFFMpegUsingPowerShellScriptFile(localDir, [
         ...inputFileArguments,
-        '-filter_complex',
-        filters.join(';'),
+        // '-filter_complex',
+        // filters.join(';'),
+        '-filter_complex_script',
+        filterComplexScriptFileName,
         '-map', videoMapVariable,
         '-map', audioMapVariable,
         '-c:v', 'libx264',

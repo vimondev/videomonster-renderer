@@ -784,14 +784,16 @@ exports.GenerateYoutubeShorts = async ({
     videoMapVariable = nextVideoMapVariable
 
     let currentDuration = 0
+    const roundDuration = duration => Math.floor(duration * 1000) / 1000
+
     for (const clip of clips) {
         const { start: clipStart, end: clipEnd, list } = clip
 
         for (const text of list) {
             const { fileName, start, end, left, top, width, height } = text
 
-            const textStart = start - clipStart + currentDuration
-            const textEnd = end - clipStart + currentDuration
+            const textStart = roundDuration(start - clipStart + currentDuration)
+            const textEnd = roundDuration(end - clipStart + currentDuration)
             inputFileArguments.push(...['-i', fileName])
 
             const idx = getInputFileCount(inputFileArguments)
@@ -802,7 +804,7 @@ exports.GenerateYoutubeShorts = async ({
             filters.push(`${videoMapVariable}${textMapVariable}overlay=x=${left}:y=${top}:enable='between(t\\,${textStart},${textEnd})'${nextVideoMapVariable}`)
             videoMapVariable = nextVideoMapVariable
         }
-        currentDuration += (clipEnd - clipStart)
+        currentDuration += roundDuration(clipEnd - clipStart)
     }
 
     volume = Math.max(0, Math.min(2, volume))

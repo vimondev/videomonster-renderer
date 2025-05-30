@@ -554,6 +554,8 @@ exports.GenerateYoutubeShorts = async ({
     meta: {
         yid,
         texts = [],
+        customTexts = [],
+        images = [],
         layout = 'Layout01',
         volume = 1,
         playbackSpeed = 1
@@ -656,6 +658,18 @@ exports.GenerateYoutubeShorts = async ({
             for (let i = 0; i < otherTexts.length; i++) {
                 const item = otherTexts[i]
                 const fileName = `t-${i}${path.extname(item.filepath)}`
+                promises.push(fsAsync.CopyFileAsync(item.filepath, `${localSourcesDir}/${fileName}`))
+                item.fileName = fileName
+            }
+            for (let i = 0; i < customTexts.length; i++) {
+                const item = customTexts[i]
+                const fileName = `ct-${i}${path.extname(item.filepath)}`
+                promises.push(fsAsync.CopyFileAsync(item.filepath, `${localSourcesDir}/${fileName}`))
+                item.fileName = fileName
+            }
+            for (let i = 0; i < images.length; i++) {
+                const item = images[i]
+                const fileName = `img-${i}${path.extname(item.filepath)}`
                 promises.push(fsAsync.CopyFileAsync(item.filepath, `${localSourcesDir}/${fileName}`))
                 item.fileName = fileName
             }
@@ -805,6 +819,32 @@ exports.GenerateYoutubeShorts = async ({
             videoMapVariable = nextVideoMapVariable
         }
         currentDuration += roundDuration(clipEnd - clipStart)
+    }
+
+    for (const customText of customTexts) {
+        const { fileName, start, end, left, top, width, height } = customText
+        inputFileArguments.push(...['-i', fileName])
+
+        const idx = getInputFileCount(inputFileArguments)
+        const customTextMapVariable = `[ct${idx}]`
+
+        nextVideoMapVariable = `[ov${idx}]`
+        filters.push(`[${idx}:v]fps=30,scale=${width}:${height}${customTextMapVariable}`)
+        filters.push(`${videoMapVariable}${customTextMapVariable}overlay=x=${left}:y=${top}:enable='between(t\\,${roundDuration(start)},${roundDuration(end)})'${nextVideoMapVariable}`)
+        videoMapVariable = nextVideoMapVariable
+    }
+
+    for (const image of images) {
+        const { fileName, start, end, left, top, width, height } = image
+        inputFileArguments.push(...['-i', fileName])
+
+        const idx = getInputFileCount(inputFileArguments)
+        const imageMapVariable = `[img${idx}]`
+
+        nextVideoMapVariable = `[ov${idx}]`
+        filters.push(`[${idx}:v]fps=30,scale=${width}:${height}${imageMapVariable}`)
+        filters.push(`${videoMapVariable}${imageMapVariable}overlay=x=${left}:y=${top}:enable='between(t\\,${roundDuration(start)},${roundDuration(end)})'${nextVideoMapVariable}`)
+        videoMapVariable = nextVideoMapVariable
     }
 
     volume = Math.max(0, Math.min(2, volume))

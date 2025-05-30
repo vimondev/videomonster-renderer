@@ -45,8 +45,8 @@ async function func() {
           // return 'http://vmstage2025.koreacentral.cloudapp.azure.com:3000'
           return 'http://vmstage2025-2.koreacentral.cloudapp.azure.com:3000'
         case 'dev':
-          return 'http://vmdev2025.koreacentral.cloudapp.azure.com:3000'
-        // return 'http://videomonster.iptime.org:3000'
+          // return 'http://vmdev2025.koreacentral.cloudapp.azure.com:3000'
+          return 'http://videomonster.iptime.org:3000'
 
         default:
           console.log(`[ERROR] Target Server Ip is null. (Branch : ${current})`)

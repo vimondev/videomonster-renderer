@@ -558,7 +558,8 @@ exports.GenerateYoutubeShorts = async ({
         images = [],
         layout = 'Layout01',
         volume = 1,
-        playbackSpeed = 1
+        playbackSpeed = 1,
+        cropData
     }
 }) => {
     const localDir = `${localPath}/generate-youtube-shorts`
@@ -706,86 +707,105 @@ exports.GenerateYoutubeShorts = async ({
     let y = 0
     let width = REF_VALUE
     let height = REF_VALUE
-
-    let needToCrop = false
     nextVideoMapVariable = '[cv]'
-    switch (layout) {
-        case 'Layout02':
-            {
-                width = outputVideoWidth
-                height = outputVideoHeight
-                x = 0
-                y = 0
-                needToCrop = true
-            }
-            break
 
-        case 'Layout03':
-            {
-                width = REF_VALUE
-                height = REF_VALUE
-                x = 0
-                y = outputVideoHeight * 0.075
-                needToCrop = true
-            }
-            break
+    if (cropData && cropData.cropRect && cropData.overlayRect) {
+        const { cropRect, overlayRect } = cropData
+        const CROP_REF_VALUE = sourceVideoWidth
 
-        case 'Layout04':
-            {
-                width = REF_VALUE
-                height = REF_VALUE
-                x = 0
-                y = (outputVideoHeight - height) / 2
-                needToCrop = true
-            }
-            break
+        const cropStartX = Math.floor(Math.max(0, cropRect.startX) * CROP_REF_VALUE)
+        const cropStartY = Math.floor(Math.max(0, cropRect.startY) * CROP_REF_VALUE)
+        const cropEndX = Math.floor(Math.min(1, cropRect.endX) * CROP_REF_VALUE)
+        const cropEndY = Math.floor(Math.min(1, cropRect.endY) * CROP_REF_VALUE)
+        const cropWidth = cropEndX - cropStartX
+        const cropHeight = cropEndY - cropStartY
 
-        case 'Layout05':
-            {
-                width = REF_VALUE
-                height = REF_VALUE
-                x = 0
-                y = outputVideoHeight - REF_VALUE - outputVideoHeight * 0.075
-                needToCrop = true
-            }
-            break
+        x = Math.floor(overlayRect.x * REF_VALUE)
+        y = Math.floor(overlayRect.y * REF_VALUE)
+        width = Math.floor(overlayRect.width * REF_VALUE)
+        height = Math.floor(overlayRect.height * REF_VALUE)
 
-        case 'Layout06':
-            {
-                width = REF_VALUE
-                height = REF_VALUE
-                x = 0
-                y = outputVideoHeight * 0.15
-                needToCrop = true
-            }
-            break
-
-        case 'Layout01':
-        default:
-            {
-                width = REF_VALUE
-                height = REF_VALUE / sourceAspectRatio
-                x = 0
-                y = (outputVideoHeight - (REF_VALUE / sourceAspectRatio)) / 2
-            }
-            break
-    }
-    if (needToCrop) {
-        if (sourceAspectRatio > 1) {
-            const scaledWidth = sourceVideoWidth * (height / sourceVideoHeight)
-            filters.push(`${videoMapVariable}fps=30,scale=${scaledWidth}:${height},crop=${width}:${height}:${scaledWidth / 2 - width / 2}:${0}${nextVideoMapVariable}`)
-        }
-        else {
-            const scaledHeight = sourceVideoHeight * (width / sourceVideoWidth)
-            filters.push(`${videoMapVariable}fps=30,scale=${width}:${scaledHeight},crop=${width}:${scaledHeight}:${0}:${scaledHeight / 2 - height / 2}${nextVideoMapVariable}`)
-        }
+        filters.push(`${videoMapVariable}crop=${cropWidth}:${cropHeight}:${cropStartX}:${cropStartY},scale=${width}:${height}${nextVideoMapVariable}`)
+        videoMapVariable = nextVideoMapVariable
     }
     else {
-        filters.push(`${videoMapVariable}fps=30,scale=${width}:${height}${nextVideoMapVariable}`)
+        let needToCrop = false
+        switch (layout) {
+            case 'Layout02':
+                {
+                    width = outputVideoWidth
+                    height = outputVideoHeight
+                    x = 0
+                    y = 0
+                    needToCrop = true
+                }
+                break
+    
+            case 'Layout03':
+                {
+                    width = REF_VALUE
+                    height = REF_VALUE
+                    x = 0
+                    y = outputVideoHeight * 0.075
+                    needToCrop = true
+                }
+                break
+    
+            case 'Layout04':
+                {
+                    width = REF_VALUE
+                    height = REF_VALUE
+                    x = 0
+                    y = (outputVideoHeight - height) / 2
+                    needToCrop = true
+                }
+                break
+    
+            case 'Layout05':
+                {
+                    width = REF_VALUE
+                    height = REF_VALUE
+                    x = 0
+                    y = outputVideoHeight - REF_VALUE - outputVideoHeight * 0.075
+                    needToCrop = true
+                }
+                break
+    
+            case 'Layout06':
+                {
+                    width = REF_VALUE
+                    height = REF_VALUE
+                    x = 0
+                    y = outputVideoHeight * 0.15
+                    needToCrop = true
+                }
+                break
+    
+            case 'Layout01':
+            default:
+                {
+                    width = REF_VALUE
+                    height = REF_VALUE / sourceAspectRatio
+                    x = 0
+                    y = (outputVideoHeight - (REF_VALUE / sourceAspectRatio)) / 2
+                }
+                break
+        }
+        if (needToCrop) {
+            if (sourceAspectRatio > 1) {
+                const scaledWidth = sourceVideoWidth * (height / sourceVideoHeight)
+                filters.push(`${videoMapVariable}fps=30,scale=${scaledWidth}:${height},crop=${width}:${height}:${scaledWidth / 2 - width / 2}:${0}${nextVideoMapVariable}`)
+            }
+            else {
+                const scaledHeight = sourceVideoHeight * (width / sourceVideoWidth)
+                filters.push(`${videoMapVariable}fps=30,scale=${width}:${scaledHeight},crop=${width}:${scaledHeight}:${0}:${scaledHeight / 2 - height / 2}${nextVideoMapVariable}`)
+            }
+        }
+        else {
+            filters.push(`${videoMapVariable}fps=30,scale=${width}:${height}${nextVideoMapVariable}`)
+        }
+        videoMapVariable = nextVideoMapVariable
     }
-
-    videoMapVariable = nextVideoMapVariable
-
     nextVideoMapVariable = '[ov]'
     filters.push(`[1:v]fps=30,scale=${outputVideoWidth}:${outputVideoHeight}[bg]`)
     filters.push(`[bg]${videoMapVariable}overlay=x=${x}:y=${y}${nextVideoMapVariable}`)

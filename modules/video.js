@@ -711,12 +711,11 @@ exports.GenerateYoutubeShorts = async ({
 
     if (cropData && cropData.cropRect && cropData.overlayRect) {
         const { cropRect, overlayRect } = cropData
-        const CROP_REF_VALUE = sourceVideoWidth
 
-        const cropStartX = Math.floor(Math.max(0, cropRect.startX) * CROP_REF_VALUE)
-        const cropStartY = Math.floor(Math.max(0, cropRect.startY) * CROP_REF_VALUE)
-        const cropEndX = Math.floor(Math.min(1, cropRect.endX) * CROP_REF_VALUE)
-        const cropEndY = Math.floor(Math.min(1, cropRect.endY) * CROP_REF_VALUE)
+        const cropStartX = Math.floor(Math.max(0, cropRect.startX) * sourceVideoWidth)
+        const cropStartY = Math.floor(Math.max(0, cropRect.startY) * sourceVideoHeight)
+        const cropEndX = Math.floor(Math.min(1, cropRect.endX) * sourceVideoWidth)
+        const cropEndY = Math.floor(Math.min(1, cropRect.endY) * sourceVideoHeight)
         const cropWidth = cropEndX - cropStartX
         const cropHeight = cropEndY - cropStartY
 

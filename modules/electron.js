@@ -1,3 +1,6 @@
+/**
+ * Product Detail Shosrts Web Crawling
+ */
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const cheerio = require('cheerio');
@@ -25,17 +28,18 @@ app.disableHardwareAcceleration();
 app.on('ready', async () => {
 	try {
 		// Handle command line arguments
-		const args = process.argv.slice(2);
+		const argsString = process.argv.slice(2)[0];
+		const args = argsString.split('___');
 		const url = args[0];
 		const targetFolderPath = args[1] || path.join(__dirname, '../temp');
 		const extractHtmlFileName = args[2] || 'clean.html';
 		const sourcesJsonFileName = args[3] || 'sources.json';
-		
+
 		if (!url) {
 			console.log('[Electron] Error: URL is required');
 			process.exit(1);
 		}
-		
+				
 		// Create target directory if it doesn't exist
 		await fsAsync.Mkdirp(targetFolderPath);
 
@@ -158,7 +162,7 @@ app.on('ready', async () => {
 		win.close();
 		process.exit(0);
 	} catch (err) {
-		console.error('[Electron] Error:', err);
+		console.log('[Electron] Error:', err);
 		process.exit(1);
 	}
 });

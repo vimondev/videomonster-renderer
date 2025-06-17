@@ -7,10 +7,12 @@ const SeparateImage = async ({
 	targetFolderPath,
 	targetImageFileNamePrefix,
 }) => {
+	let image = null;
+	const originOutputPath = path.join(targetFolderPath, `${targetImageFileNamePrefix}0.jpg`);
+
 	try {
 		// 이미지 읽기
-		const image = await cv.imreadAsync(originImageFilePath);
-		const originOutputPath = path.join(targetFolderPath, `${targetImageFileNamePrefix}0.jpg`);
+		image = await cv.imreadAsync(originImageFilePath);
 
 		// 세로/가로 비율 체크
 		const aspectRatio = image.rows / image.cols;
@@ -35,7 +37,7 @@ const SeparateImage = async ({
 		const pixelChanges = [];  // 픽셀 변화량을 저장할 배열
 		const binaryData = binary.getDataAsArray();
 		const grayData = gray.getDataAsArray();
-
+		
 		for (let y = 0; y < binary.rows; y++) {
 			const sum = binaryData[y].reduce((acc, val) => acc + val, 0);
 			rowSums.push(sum);
@@ -92,7 +94,7 @@ const SeparateImage = async ({
 
 		// 분리 지점을 표시한 이미지 생성
 		const separationImage = image.copy();
-
+		
 		for (let y = 1; y < rowSums.length - 1; y++) {
 			// 흰색 영역 기반 검출
 			const isWhiteArea = rowSums[y] > whiteThreshold &&
@@ -158,7 +160,7 @@ const SeparateImage = async ({
 				continue;
 			}
 
-			const outputFileName = `${targetImageFileNamePrefix}${i}.jpg`;
+			const outputFileName = `${targetImageFileNamePrefix}${i+1}.jpg`;
 			const outputPath = path.join(targetFolderPath, outputFileName);
 			await cv.imwriteAsync(outputPath, roi);
 			separatedPaths.push(outputPath);
@@ -167,6 +169,7 @@ const SeparateImage = async ({
 		// 분리된 이미지가 없으면 원본 이미지 저장
 		if (separatedPaths.length === 0) {
 			await cv.imwriteAsync(originOutputPath, image);
+			return [originOutputPath]
 		}
 		
 		// 메모리 정리
@@ -177,14 +180,17 @@ const SeparateImage = async ({
 		separationImage.release();
 		image.release();
 		
-		if (separatedPaths.length === 0) {
-			return [originOutputPath];
-		}
-		
 		return separatedPaths;
 	} catch (err) {
-		console.error(`[SeparateImage] 이미지 분리 중 오류: ${err}`);
-		return [originImageFilePath];
+		console.error(`[SeparateImage] 이미지 분리 중 
+		오류: ${err}`);
+
+		if (image) {
+			await cv.imwriteAsync(originOutputPath, image);
+			return [originOutputPath]
+		}
+
+		return [];
 	}
 }
 

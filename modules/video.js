@@ -381,9 +381,12 @@ const SpawnFFMpegUsingPowerShellScriptFile = (localDir, args) => {
 const SpawnElectronWebCrawlerByProductDetail = async (url, targetFolderPath, extractHtmlFileName, sourcesJsonFileName) => {
     return new Promise(async (resolve, reject) => {
         try {
+            const argsString = [url, targetFolderPath, extractHtmlFileName, sourcesJsonFileName].join('___') //TODO: replace string
+            console.log(argsString)
             const iconv = require('iconv-lite')
             const spawn = require(`child_process`).spawn,
-                ls = spawn(`cmd`, [`/c`, `npm`, `run`, `electron:web-crawler`, `--`, url, targetFolderPath, extractHtmlFileName, sourcesJsonFileName])
+                ls = spawn(`cmd`, [`/c`, `npm`, `run`, `electron:web-crawler`, argsString
+            ], { cwd: process.cwd() })
 
             let log = ``
             ls.stdout.on('data', function (data) {

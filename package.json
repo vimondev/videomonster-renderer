@@ -22,7 +22,8 @@
   "main": "app.js",
   "scripts": {
     "prestart": "git pull origin master && npm i",
-    "start": "node app.js"
+    "start": "node app.js",
+    "electron:web-crawler": "electron ./modules/electron.js"
   },
   "repository": {
     "type": "git",

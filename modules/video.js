@@ -18,6 +18,8 @@ const {
     RunningFunctionWithRetry
 } = require('../global')
 
+const { SeparateImage } = require('./opencv')
+
 function AccessAsync(_path) {
     return new Promise((resolve, reject) => {
         fs.access(_path, err => {
@@ -372,6 +374,79 @@ const SpawnFFMpegUsingPowerShellScriptFile = (localDir, args) => {
         catch (e) {
             console.log(e)
             reject(`ERR_SPAWN_FFMPEG_FAILED (FFMPEG 프로세스 생성 실패)`)
+        }
+    })
+}
+
+const SpawnElectronWebCrawlerByProductDetail = async (url, targetFolderPath, extractHtmlFileName, sourcesJsonFileName) => {
+    return new Promise((resolve, reject) => {
+        try {
+            const electronScript = path.join(__dirname, 'electron.js');
+            const spawn = require(`child_process`).spawn,
+                electronProcess = spawn(
+                    'electron',
+                    [
+                        electronScript,
+                        url,
+                        targetFolderPath,
+                        extractHtmlFileName,
+                        sourcesJsonFileName
+                    ],
+                    {
+                        stdio: ['pipe', 'pipe', 'pipe']
+                    }
+                );
+            
+            let stdout = '';
+            let stderr = '';
+            
+            // stdout 데이터 수집
+            electronProcess.stdout.on('data', (data) => {
+                console.log('stdout: ', data.toString());
+                stdout += data.toString();
+            });
+            
+            // stderr 데이터 수집
+            electronProcess.stderr.on('data', (data) => {
+                console.log('stderr: ', data.toString());
+                stderr += data.toString();
+            });
+            
+            // 프로세스 종료 시 처리
+            electronProcess.on('close', (code) => {
+                if (code !== 0) {
+                    return reject(`ERR_ELECTRON_PROCESS_FAILED (LOG: ${stderr})`)
+                }
+            
+                // Parse the result from stdout
+                try {
+                    // Find the JSON in the output - 더 안전한 JSON 파싱
+                    const jsonMatch = stdout.match(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/s);
+                    if (!jsonMatch) {
+                        return reject(`ERR_ELECTRON_PROCESS_FAILED (LOG: ${stdout})`)
+                    }
+
+                    const result = JSON.parse(jsonMatch[0]); // { extractHtmlFilePath, sourcesJsonFilePath }
+                    
+                    // 결과 유효성 검증
+                    if (!result || typeof result !== 'object') {
+                        return reject(`ERR_ELECTRON_PROCESS_FAILED (INVALID_RESULT: ${stdout})`)
+                    }
+                    
+                    resolve(result)
+                } catch (parseError) {
+                    reject(`ERR_ELECTRON_PROCESS_FAILED (PARSE_ERROR: ${parseError.message}, LOG: ${stdout})`)
+                }
+            });
+        
+            // Handle unexpected errors
+            electronProcess.on('error', (error) => {
+                console.error('Failed to start Electron process:', error);
+                reject(error);
+            });
+        } catch (e) {
+            console.error('Error starting Electron crawler:', e);
+            reject(e)
         }
     })
 }
@@ -828,6 +903,89 @@ exports.GenerateYoutubeShorts = async ({
     await fsAsync.UnlinkFolderRecursiveIgnoreError(localDir)
 
     console.log(`Generated shorts video in ${Date.now() - startTime}ms`)
+}
+
+exports.ExtractUrlToHtmlAndSources = async ({
+    targetFolderPath,
+    url,
+    extractHtmlFileName,
+    sourcesJsonFileName,
+    separateImageFileName: separateImageFileNamePrefix,
+    extractVideoFileName: extractVideoFileNamePrefix
+}) => {
+    // localDir 폴더 생성 (임시 폴더)
+    const localDir = `${localPath}/extract-url-to-html-and-sources`
+    if (await fsAsync.IsExistAsync(localDir)) await fsAsync.UnlinkFolderRecursiveIgnoreError(localDir)
+    await fsAsync.Mkdirp(localDir)
+
+    const startTime = Date.now()
+    console.log('[ExtractUrlToHtmlAndSources] Electron Start')
+    
+    // 1. electron 을 이용한 html 파일 추출
+    const electronResult = await SpawnElectronWebCrawlerByProductDetail(url, targetFolderPath, extractHtmlFileName, sourcesJsonFileName)
+
+    // 2. 추출된 html 파일을 파싱하여 image 및 video 추출
+    const { extractHtmlFilePath, sourcesJsonFilePath } = electronResult;
+    if (!extractHtmlFilePath || !sourcesJsonFilePath) {
+        const log = `extractHtmlFilePath isExist: ${!!extractHtmlFilePath}, sourcesJsonFilePath isExist: ${!!sourcesJsonFilePath}`
+        throw new Error(`ERR_EXTRACT_URL_TO_HTML_AND_SOURCES_FAILED (LOG: ${log})`)
+    }
+    console.log(`[ExtractUrlToHtmlAndSources] Electron End`)
+    
+
+    // sources.json 파일 읽기
+    const sources = JSON.parse(await fsAsync.ReadFileAsync(sourcesJsonFilePath, 'utf8'));
+    // TODO: sources.json 파일 읽고 난 후 필요시 삭제 (디스크 낭비)
+    // await fsAsync.UnlinkAsync(sourcesJsonFilePath)
+
+    const { images: sourceImages, videos: sourceVideos } = sources;
+    
+    // 3. 비디오 처리
+    for (const video of sourceVideos) {
+        const { index, url } = video
+        const videoFileName = `${extractVideoFileNamePrefix}${index}.mp4`
+        const videoFilePath = `${targetFolderPath}/${videoFileName}`
+        
+        try {
+            await downloadFile(videoFilePath, url)
+            
+            if (!(await retryBoolean(AccessAsync(videoFilePath)))) {
+                continue
+            }
+        } catch (e) {
+            continue
+        }
+    }
+    
+    // 4. 이미지 분리 및 사이즈 필터링 (With OpenCV)
+    console.log(`[ExtractUrlToHtmlAndSources] SeparateImage Start`)
+    for (const image of sourceImages) {
+        const { index, url } = image
+        
+        const ext = path.extname(url) || '.jpg'
+        const originImageFileName = `${index}${ext}`
+        const originImageFilePath = `${localDir}/${originImageFileName}`
+        
+        const targetImageFileNamePrefix = `${separateImageFileNamePrefix}${index}-` // separate-image-{origin-image-index}-
+        
+        try {
+            await downloadFile(originImageFilePath, url)
+            
+            if (!(await retryBoolean(AccessAsync(originImageFilePath)))) {
+                continue
+            }
+            
+            await SeparateImage({
+                originImageFilePath,
+                targetFolderPath,
+                targetImageFileNamePrefix
+            })
+        } catch (e) {
+            continue
+        }
+    }
+
+    console.log(`[ExtractUrlToHtmlAndSources] End in ${Date.now() - startTime}ms`)
 }
 
 // TIFF -> h264 인코딩

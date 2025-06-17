@@ -2,8 +2,10 @@
   "dependencies": {
     "adm-zip": "^0.5.16",
     "axios": "^0.18.0",
+    "cheerio": "1.0.0-rc.12",
     "dotenv": "^7.0.0",
     "guid": "0.0.12",
+    "html-minifier": "^4.0.0",
     "iconv-lite": "^0.6.3",
     "jimp": "^0.6.1",
     "sharp": "^0.26.1",
@@ -11,6 +13,9 @@
     "socket.io-client": "^2.2.0",
     "uuid": "^8.3.2",
     "yt-dlp-wrap": "^2.3.12"
+  },
+  "devDependencies": {
+    "electron": "^14.2.9"
   },
   "name": "videomonster-renderer",
   "version": "1.0.0",

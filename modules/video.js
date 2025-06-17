@@ -383,7 +383,7 @@ const SpawnElectronWebCrawlerByProductDetail = async (url, targetFolderPath, ext
         try {
             const iconv = require('iconv-lite')
             const spawn = require(`child_process`).spawn,
-                ls = spawn(`cmd`, [`/c`, `npm`, `run`, `electron:web-crawler`, url, targetFolderPath, extractHtmlFileName, sourcesJsonFileName])
+                ls = spawn(`cmd`, [`/c`, `npm`, `run`, `electron:web-crawler`, `--`, url, targetFolderPath, extractHtmlFileName, sourcesJsonFileName])
 
             let log = ``
             ls.stdout.on('data', function (data) {

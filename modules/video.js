@@ -379,74 +379,53 @@ const SpawnFFMpegUsingPowerShellScriptFile = (localDir, args) => {
 }
 
 const SpawnElectronWebCrawlerByProductDetail = async (url, targetFolderPath, extractHtmlFileName, sourcesJsonFileName) => {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
         try {
-            const electronScript = path.join(__dirname, 'electron.js');
+            const iconv = require('iconv-lite')
             const spawn = require(`child_process`).spawn,
-                electronProcess = spawn(
-                    'electron',
-                    [
-                        electronScript,
-                        url,
-                        targetFolderPath,
-                        extractHtmlFileName,
-                        sourcesJsonFileName
-                    ],
-                    {
-                        stdio: ['pipe', 'pipe', 'pipe']
-                    }
-                );
-            
-            let stdout = '';
-            let stderr = '';
-            
-            // stdout 데이터 수집
-            electronProcess.stdout.on('data', (data) => {
-                console.log('stdout: ', data.toString());
-                stdout += data.toString();
-            });
-            
-            // stderr 데이터 수집
-            electronProcess.stderr.on('data', (data) => {
-                console.log('stderr: ', data.toString());
-                stderr += data.toString();
-            });
-            
-            // 프로세스 종료 시 처리
-            electronProcess.on('close', (code) => {
-                if (code !== 0) {
-                    return reject(`ERR_ELECTRON_PROCESS_FAILED (LOG: ${stderr})`)
-                }
-            
-                // Parse the result from stdout
-                try {
-                    // Find the JSON in the output - 더 안전한 JSON 파싱
-                    const jsonMatch = stdout.match(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/s);
-                    if (!jsonMatch) {
-                        return reject(`ERR_ELECTRON_PROCESS_FAILED (LOG: ${stdout})`)
-                    }
+                ls = spawn(`cmd`, [`/c`, `npm`, `run`, `electron:web-crawler`, url, targetFolderPath, extractHtmlFileName, sourcesJsonFileName])
 
-                    const result = JSON.parse(jsonMatch[0]); // { extractHtmlFilePath, sourcesJsonFilePath }
-                    
-                    // 결과 유효성 검증
-                    if (!result || typeof result !== 'object') {
-                        return reject(`ERR_ELECTRON_PROCESS_FAILED (INVALID_RESULT: ${stdout})`)
+            let log = ``
+            ls.stdout.on('data', function (data) {
+                console.log('stdout: ' + iconv.decode(data, 'cp949'))
+                log += String(iconv.decode(data, 'cp949'))
+            })
+
+            ls.stderr.on('data', function (data) {
+                console.log('stderr: ' + iconv.decode(data, 'cp949'))
+                log += String(iconv.decode(data, 'cp949'))
+            })
+
+            ls.on('exit', async function (code) {
+                if (code === 0) {
+                    // Parse the result from stdout
+                    try {
+                        // Find the JSON in the output - 더 안전한 JSON 파싱
+                        const jsonMatch = log.match(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/s);
+                        if (!jsonMatch) {
+                            return reject(`ERR_ELECTRON_PROCESS_FAILED (LOG: ${log})`)
+                        }
+
+                        const result = JSON.parse(jsonMatch[0]); // { extractHtmlFilePath, sourcesJsonFilePath }
+                        
+                        // 결과 유효성 검증
+                        if (!result || typeof result !== 'object') {
+                            return reject(`ERR_ELECTRON_PROCESS_FAILED (INVALID_RESULT: ${log})`)
+                        }
+                        
+                        resolve(result)
+                    } catch (parseError) {
+                        reject(`ERR_ELECTRON_PROCESS_FAILED (PARSE_ERROR: ${parseError.message}, LOG: ${log})`)
                     }
-                    
-                    resolve(result)
-                } catch (parseError) {
-                    reject(`ERR_ELECTRON_PROCESS_FAILED (PARSE_ERROR: ${parseError.message}, LOG: ${stdout})`)
                 }
-            });
-        
-            // Handle unexpected errors
-            electronProcess.on('error', (error) => {
-                console.error('Failed to start Electron process:', error);
-                reject(error);
-            });
-        } catch (e) {
-            console.error('Error starting Electron crawler:', e);
-            reject(e)
+                else {
+                    reject(`ERR_ELECTRON_PROCESS_FAILED (LOG : ${log})`)
+                }
+            })
+        }
+        catch (e) {
+            console.log(e)
+            reject(`ERR_SPAWN_ELECTRON_FAILED (Electron 프로세스 생성 실패)`)
         }
     })
 }

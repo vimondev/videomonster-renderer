@@ -107,10 +107,33 @@ app.on('ready', async () => {
 				return { images, videos };
 			})()
 		`);
+		
+		const _urlFormatter = (imageUrl) => {
+			let url = imageUrl.split('?')[0];
 
+			if (!url.includes('https://') && !url.includes('http://')) {
+				if (url.startsWith('://')) url = `https${url}`;
+				else if (url.startsWith('//')) url = `https:${url}`;
+				else if (url.startsWith('/')) url = `https:/${url}`;
+				else if (url.startsWith('.')) url = `https://${url}`;
+			}
+
+			return url;
+		}
+		
+		const urlFormatJson = {
+			image: sources.images.map(image => ({
+				index: image.index,
+				url: _urlFormatter(image.url)
+			})),
+			video: sources.videos.map(video => ({
+				index: video.index,
+				url: _urlFormatter(video.url)
+			})),
+		}
 		// Save sources
 		const sourcesJsonFilePath = path.join(targetFolderPath, sourcesJsonFileName);
-		await fsAsync.WriteFileAsync(sourcesJsonFilePath, JSON.stringify(sources, null, 2));
+		await fsAsync.WriteFileAsync(sourcesJsonFilePath, JSON.stringify(urlFormatJson, null, 2));
 
 		// Clean HTML with cheerio
 		const $ = cheerio.load(fullHtml);

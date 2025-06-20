@@ -61,7 +61,6 @@ const SeparateImage = async ({
 	targetImageFileNamePrefix,
 }) => {
 	// OpenCV Mat 객체들 - 메모리 관리를 위해 finally에서 해제
-	let originImage = null;
 	let image = null;
 	let smallImage = null;
 	let gray = null;
@@ -82,7 +81,12 @@ const SeparateImage = async ({
 		const MAX_COLS_ASPECT_RATIO = 1.5;	// 가로 비율 최대값
 		
 		// 원본 이미지 로드
-		originImage = await cv.imreadAsync(originImageFilePath);
+		try {
+			image = await cv.imreadAsync(originImageFilePath);
+		} catch (err) { 
+			return []
+		}
+		
 		const originOutputPath = path.join(targetFolderPath, `${targetImageFileNamePrefix}0.jpg`);
 		const originOutputSmallPath = path.join(targetFolderPath, `${targetImageFileNamePrefix}0_small.jpg`);
 
@@ -96,7 +100,6 @@ const SeparateImage = async ({
 
 		// === 1단계: 이미지 크기 조정 ===
 		// 너비가 MAX_WIDTH를 초과하면 비율에 맞게 축소
-		image = originImage;
 		if (image.cols > MAX_WIDTH) {
 			const scale = MAX_WIDTH / image.cols;
 			image = _resizeMatByRatio(image, scale);
@@ -149,8 +152,7 @@ const SeparateImage = async ({
 				pixelChanges.push((changes / gray.cols) * 100);  // 변화율을 퍼센트로 저장
 			}
 		}
-
-		// 시각화를 위한 그래프 이미지 생성
+		// === 5단계: 시각화를 위한 그래프 이미지 생성 ===
 		const graphHeight = 400;
 		const graphWidth = binary.cols;
 		// 흰색 배경의 3채널 이미지 생성
@@ -290,7 +292,6 @@ const SeparateImage = async ({
 	} finally {
 		// 메모리 누수 방지를 위한 모든 Mat 객체 해제
 		_SafeRelease(
-			originImage,
 			image,
 			smallImage,
 			gray,
@@ -303,7 +304,6 @@ const SeparateImage = async ({
 };
 
 module.exports = {
-	FilteringImage,
 	CheckImageSizeValid,
 	SeparateImage
 }

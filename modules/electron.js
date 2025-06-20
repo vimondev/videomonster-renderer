@@ -122,11 +122,11 @@ app.on('ready', async () => {
 		}
 		
 		const urlFormatJson = {
-			image: sources.images.map(image => ({
+			images: sources.images.map(image => ({
 				index: image.index,
 				url: _urlFormatter(image.url)
 			})),
-			video: sources.videos.map(video => ({
+			videos: sources.videos.map(video => ({
 				index: video.index,
 				url: _urlFormatter(video.url)
 			})),

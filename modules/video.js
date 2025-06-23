@@ -18,7 +18,7 @@ const {
     RunningFunctionWithRetry
 } = require('../global')
 
-const { SeparateImage } = require('./opencv')
+const { SeparateImage, CheckImageSizeValid } = require('./opencv')
 
 function AccessAsync(_path) {
     return new Promise((resolve, reject) => {
@@ -941,31 +941,52 @@ exports.ExtractUrlToHtmlAndSources = async ({
     
     // 4. 이미지 분리 및 사이즈 필터링 (With OpenCV)
     console.log(`[ExtractUrlToHtmlAndSources] SeparateImage Start`)
+
+    const SUPPORTED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif'] // '.webp' 지원되는 이미지 확장자
+    const resultImages = []
     for (const image of sourceImages) {
-        const { index, url } = image
-        
-        const ext = path.extname(url) || '.jpg'
-        const originImageFileName = `${index}${ext}`
-        const originImageFilePath = `${localDir}/${originImageFileName}`
-        
-        const targetImageFileNamePrefix = `${separateImageFileNamePrefix}${index}-` // separate-image-{origin-image-index}-
-        
         try {
-            await downloadFile(originImageFilePath, url)
+            const { index, url } = image
+
+            const urlFileName = path.basename(new URL(url).pathname);
+            const ext = path.extname(url) || '.jpg'
+            const originImageFileName = `${index}${ext}`
+            const originImageFilePath = `${localDir}/${originImageFileName}`
             
-            if (!(await retryBoolean(AccessAsync(originImageFilePath)))) {
+            const targetImageFileNamePrefix = `${separateImageFileNamePrefix}${index}-` // separate-image-{origin-image-index}-
+        
+            if (!SUPPORTED_EXTENSIONS.includes(ext)) continue
+            
+            await downloadFile(originImageFilePath, url)
+
+            if (
+                !(await retryBoolean(AccessAsync(originImageFilePath))) ||
+                !(await CheckImageSizeValid(originImageFilePath))
+            ) {
                 continue
             }
             
-            await SeparateImage({
+            const separatedImages = await SeparateImage({
                 originImageFilePath,
                 targetFolderPath,
                 targetImageFileNamePrefix
             })
+            
+            resultImages.push(...separatedImages.map(image => ({
+                index,
+                originFileName: urlFileName,
+                imagePath: image.image,
+                imageWidth: image.width,
+                imageHeight: image.height,
+                
+                smallImagePath: image.smallImage,
+            })))
         } catch (e) {
             continue
         }
     }
+    
+    await fsAsync.WriteFileAsync(`${targetFolderPath}/separated-images.json`, JSON.stringify(resultImages, null, 2))
 
     console.log(`[ExtractUrlToHtmlAndSources] End in ${Date.now() - startTime}ms`)
 }

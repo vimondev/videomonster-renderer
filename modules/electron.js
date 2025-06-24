@@ -92,7 +92,7 @@ app.on('ready', async () => {
 			(() => {
 				const images = Array.from(document.querySelectorAll('img')).map((img, index) => ({
 					index: index,
-					url: img.src || img.currentSrc,
+					url: img.getAttribute('ec-data-src') || img.src || img.currentSrc,
 					alt: img.alt || '',
 					width: img.naturalWidth || img.width,
 					height: img.naturalHeight || img.height

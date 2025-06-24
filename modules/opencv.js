@@ -7,11 +7,16 @@ const { imageSizeFromFile } = require('image-size/fromFile')
  * @param  {...any} mats 해제할 Mat 객체들
  */
 const _SafeRelease = (...mats) => {
-	mats.forEach(mat => {
-		if (mat && typeof mat.release === 'function') {
-			mat.release();
-		}
-	});
+	try {
+		mats.forEach(mat => {
+			if (mat && typeof mat.release === 'function') {
+				mat.release();
+			}
+		});
+	}
+	catch (err) {
+		console.log(`[_SafeRelease] 메모리 정리 중 오류: ${err}`);
+	}
 };
 
 /**

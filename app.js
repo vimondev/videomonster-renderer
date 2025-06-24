@@ -45,8 +45,8 @@ async function func() {
           // return 'http://vmstage2025.koreacentral.cloudapp.azure.com:3000'
           return 'http://vmstage2025-2.koreacentral.cloudapp.azure.com:3000'
         case 'dev':
-          return 'http://vmdev2025.koreacentral.cloudapp.azure.com:3000'
-        // return 'http://videomonster.iptime.org:3000'
+          // return 'http://vmdev2025.koreacentral.cloudapp.azure.com:3000'
+        return 'http://videomonster.iptime.org:3000'
 
         default:
           console.log(`[ERROR] Target Server Ip is null. (Branch : ${current})`)
@@ -426,7 +426,13 @@ async function func() {
             errCode: `ERR_GENERATE_YOUTUBE_SHORTS_STOPPED`
           })
           break
-
+        case ERenderStatus.EXTRACT_URL_TO_HTML_AND_SOURCES:
+          socket.emit(`extract_url_to_html_and_sources_completed`, {
+            currentGroupKey,
+            errCode: `ERR_EXTRACT_URL_TO_HTML_AND_SOURCES_STOPPED`
+          })
+          break
+          
         case ERenderStatus.AUDIO:
         case ERenderStatus.VIDEO:
         case ERenderStatus.MAKEMP4:
@@ -970,6 +976,62 @@ async function func() {
     catch (e) {
       console.log(e)
       socket.emit(`generate_youtube_shorts_completed`, {
+        currentGroupKey,
+        errCode: e
+      })
+    }
+
+    renderStatus = ERenderStatus.NONE
+    isVideoRendering = false
+    renderStartedTime = null
+  })
+  
+  socket.on(`extract_url_to_html_and_sources_start`, async (data) => {
+    isVideoRendering = true
+    let {
+      currentGroupKey,
+      rendererIndex,
+
+      targetFolderPath,
+      url,
+
+      extractHtmlFileName,
+      sourcesJsonFileName,
+      separateImageFileName,
+      extractVideoFileName,
+    } = data
+
+    console.log(data)
+
+    try {
+      await global.ClearTask()
+
+      if (!url) throw `ERR_INVALIDE_META_DATA`
+      await fsAsync.Mkdirp(targetFolderPath)
+
+      renderStatus = ERenderStatus.EXTRACT_URL_TO_HTML_AND_SOURCES
+      renderStartedTime = Date.now()
+
+      await video.ExtractUrlToHtmlAndSources({
+        targetFolderPath,
+
+        url,
+
+        extractHtmlFileName,
+        sourcesJsonFileName,
+
+        separateImageFileName,
+        extractVideoFileName
+      })
+
+      socket.emit(`extract_url_to_html_and_sources_completed`, {
+        currentGroupKey,
+        errCode: null
+      })
+    }
+    catch (e) {
+      console.log(e)
+      socket.emit(`extract_url_to_html_and_sources_completed`, {
         currentGroupKey,
         errCode: e
       })
